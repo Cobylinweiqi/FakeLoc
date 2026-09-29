@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Map pin -->
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M54,22 C43.0,22 34,31.0 34,42 C34,56.5 54,84 54,84 C54,84 74,56.5 74,42 C74,31.0 65.0,22 54,22 Z" />
+    <!-- Inner hole (punched in the background colour) -->
+    <path
+        android:fillColor="#0E2740"
+        android:pathData="M54,35 m-8.5,0 a8.5,8.5 0 1,0 17,0 a8.5,8.5 0 1,0 -17,0" />
+    <!-- Cross-hair ticks, signalling a spoofed fix -->
+    <path
+        android:fillColor="#B3E5FC"
+        android:pathData="M52.5,15h3v6h-3zM52.5,87h3v6h-3zM15,52.5h6v3h-6zM87,52.5h6v3h-6z" />
+</vector>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        Two permission groups, deliberately kept separate in the reader's mind:
+
+        * location — used by the "use real GPS" button and by the map picker's
+          blue-dot layer. The spoofing itself needs no permission at all: the
+          hooks run inside the target app, not here.
+        * network  — whichever map SDK the picker is set to streams its tiles
+          and performs its lookup calls over HTTPS. Nothing else in this app
+          touches the network; the LSPosed channel is a local binder, not an
+          HTTP call.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_LOCATION_EXTRA_COMMANDS" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
+    <!-- Needed to list installed apps in the target-picker screen. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="PackageVisibilityPolicy,QueryAllPackagesPermission" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="true"
+        android:description="@string/module_description"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.FakeLoc"
+        tools:targetApi="35">
+
+        <!--
+            No `com.baidu.lbsapi.API_KEY` entry, and that is deliberate: this
+            build ships no map credential at all. The key is supplied by the user
+            on the settings page and handed to the SDK at runtime, which is the
+            only arrangement that works for a key bound to one package name and
+            one signing certificate. See `mapsdk/MapSdkBootstrap` and the note in
+            `gradle.properties`.
+        -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.FakeLoc"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

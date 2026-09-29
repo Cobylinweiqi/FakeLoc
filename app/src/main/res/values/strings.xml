@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FakeLoc</string>
+    <string name="module_description">LSPosed virtual location — spoof GPS without enabling mock locations</string>
+
+    <!-- Module / service state -->
+    <string name="status_module_active">Module active</string>
+    <string name="status_module_inactive">Module not active</string>
+    <string name="service_unbound_title">LSPosed service unavailable</string>
+    <string name="service_unbound_desc">Enable FakeLoc in LSPosed, force-stop this app, then reopen it. The module talks to LSPosed over its bound service.</string>
+
+    <!-- Run state -->
+    <string name="state_running">Spoofing</string>
+    <string name="state_stopped">Idle</string>
+    <string name="state_running_sub">Target apps receive the coordinates below</string>
+    <string name="state_stopped_sub">No location is being altered</string>
+
+    <!-- Coordinates -->
+    <string name="label_latitude">Latitude</string>
+    <string name="label_longitude">Longitude</string>
+    <string name="action_use_real_gps">Use real GPS</string>
+    <string name="action_paste">Paste</string>
+    <string name="action_save">Save</string>
+    <string name="action_reset">Reset</string>
+    <string name="hint_coord_example">39.908700</string>
+    <string name="toast_saved">Coordinates saved</string>
+    <string name="toast_paste_ok">Coordinates parsed from clipboard</string>
+    <string name="toast_paste_failed">No usable coordinates found in the clipboard</string>
+    <string name="toast_location_denied">Location permission denied</string>
+    <string name="toast_location_failed">Could not get a fix — try outdoors or retry</string>
+    <string name="toast_invalid_coords">Latitude must be −90…90 and longitude −180…180</string>
+
+    <!-- Map picker -->
+    <string name="section_map">Pick on a map</string>
+    <string name="action_open_map">Pick on map</string>
+    <string name="map_open_desc">Search an address, or drag the map and let the pin mark the spot.</string>
+    <string name="map_title">Pick on map</string>
+    <string name="map_search_hint">Search a place, address or landmark</string>
+    <string name="map_search_failed">Search failed — check the network or the API key</string>
+    <string name="map_resolving">Resolving address…</string>
+    <string name="map_address_unknown">No address for this point</string>
+    <string name="map_use_this">Use this location</string>
+    <string name="map_recenter">Recentre</string>
+    <string name="map_center_hint">Drag the map — the pin marks the centre</string>
+    <string name="map_datum_note">The base map is Tencent’s and speaks GCJ-02; the value below is converted to WGS-84 so it matches the box above.</string>
+    <string name="map_needs_key_title">No %1$s map key</string>
+    <string name="map_needs_key_desc">Tencent has no key yet, so no base map can be drawn. Add one in Settings — that page also shows the package name and SHA-1 the console will ask you for.</string>
+    <string name="map_open_settings">Open Settings</string>
+    <string name="map_sdk_failed">Map SDK failed to start: %1$s</string>
+    <string name="map_sdk_restart">The key changed — restart this app before it takes effect.</string>
+    <string name="map_failed_desc">The base map view could not be created. The screen stays here instead of taking the app down with it. It is usually a mistyped key, or a product that was not enabled in the console — check the key and restart the app.</string>
+    <string name="cd_settings">Settings</string>
+    <string name="toast_map_picked">Location picked from the map</string>
+
+    <!-- Presets -->
+    <string name="section_presets">Quick presets</string>
+    <string name="preset_beijing">Beijing</string>
+    <string name="preset_shanghai">Shanghai</string>
+    <string name="preset_guangzhou">Guangzhou</string>
+    <string name="preset_shenzhen">Shenzhen</string>
+    <string name="preset_xiamen">Xiamen</string>
+    <string name="preset_hangzhou">Hangzhou</string>
+    <string name="preset_chengdu">Chengdu</string>
+    <string name="preset_xian">Xi\'an</string>
+
+    <!-- Target apps -->
+    <string name="section_targets">Target apps</string>
+    <string name="targets_scope_all">Every app in LSPosed scope</string>
+    <string name="targets_scope_all_desc">Off: only the apps picked below are spoofed. On: every process in scope is spoofed.</string>
+    <string name="targets_selected_count">%1$d app(s) selected</string>
+    <string name="targets_also_pick_in_lsposed">Remember to add the same apps to the module scope in LSPosed — this list only decides who gets the fake fix.</string>
+    <string name="action_pick_targets">Choose apps</string>
+    <string name="targets_title">Choose target apps</string>
+    <string name="targets_search_hint">Search by name or package</string>
+    <string name="targets_empty">No installed app matches</string>
+    <string name="action_done">Done</string>
+
+    <!-- Advanced -->
+    <string name="section_advanced">Signal tuning</string>
+    <string name="adv_accuracy">Horizontal accuracy</string>
+    <string name="adv_accuracy_desc">Metres. Lower values look like a better fix.</string>
+    <string name="adv_altitude">Altitude</string>
+    <string name="adv_altitude_desc">Metres above the WGS-84 ellipsoid.</string>
+    <string name="adv_speed">Ground speed</string>
+    <string name="adv_speed_desc">Metres per second.</string>
+    <string name="adv_drift">Walking drift</string>
+    <string name="adv_drift_desc">Wander around the anchor point so the track looks human.</string>
+    <string name="adv_drift_radius">Drift radius</string>
+    <string name="adv_drift_speed">Drift speed</string>
+    <string name="adv_anti_mock">Hide mock traces</string>
+    <string name="adv_anti_mock_desc">Neutralises isFromMockProvider/isMock, the mock_location setting and the AppOps check, so detectors see nothing.</string>
+    <string name="adv_strict_sources">Lock positioning sources</string>
+    <string name="adv_strict_sources_desc">Denies WiFi scans, cell information and raw GNSS (NMEA, measurements). Without those inputs an app cannot compute a real fix of its own and fall back to it.</string>
+    <string name="adv_map_sdk">Map SDK takeover</string>
+    <string name="adv_map_sdk_desc">Hooks the Amap, Baidu and Tencent location SDKs directly — including the instances the app loads on its own. Needed for apps that read their position from a map SDK instead of the system.</string>
+    <string name="adv_sync_address">Sync the fake address</string>
+    <string name="adv_sync_address_desc">Answers the city, province, district and address getters of the map SDKs with the values resolved for the anchor by the map picker. Apps that display the city name a location SDK reports need this: with the address left real, or left empty, they keep showing where you really are. Turn it off if an app misbehaves.</string>
+    <string name="addr_unresolved">City not resolved — open the map picker and save once</string>
+
+    <!-- Main action -->
+    <string name="action_start">Start spoofing</string>
+    <string name="action_stop">Stop spoofing</string>
+
+    <!-- Misc -->
+    <string name="cd_expand">Expand</string>
+    <string name="cd_collapse">Collapse</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_clear">Clear</string>
+
+    <!-- Map service settings -->
+    <string name="settings_title">Settings</string>
+    <!-- v1.6.0: the settings page is split into two tabs. The basemap key lives under
+         "Map config"; signal tuning moved here from the home screen, and its tab reuses
+         section_advanced so the same phrase is not stored under two resource keys. -->
+    <string name="settings_tab_map">Map config</string>
+    <string name="settings_signal_desc">Shapes the forged position itself — accuracy, altitude, speed and drift — and what a detector is able to see. Each switch writes to the config as you flip it.</string>
+    <string name="settings_map_service">Map service</string>
+    <string name="settings_map_service_desc">The picker draws with Tencent’s base map, and looks addresses up through the system geocoder. The module itself forges positions and needs no map key at all — this page only affects the “pick on a map” screen.</string>
+    <string name="settings_provider">Base map and key</string>
+    <string name="settings_provider_desc">This build bundles one renderer, Tencent, and ships no key of its own. Paste your own Tencent key below; the setup steps are in the next card.</string>
+    <string name="settings_provider_ready">Ready — a key is present.</string>
+    <string name="settings_provider_missing_key">No key yet; the picker will show an empty map until you add one.</string>
+    <string name="provider_tencent">Tencent</string>
+    <string name="settings_key_tencent">Tencent Key</string>
+    <string name="settings_key_filled">set</string>
+    <string name="settings_key_empty">not set</string>
+    <string name="settings_restart_hint">A key change takes effect after this app is restarted: the SDK reads its key once, at launch.</string>
+    <string name="settings_console_title">What the console will ask for</string>
+    <string name="settings_console_desc">Tencent Location Service binds a key to this package name and this signing certificate. Differ by one character and the key is rejected — with an error that looks exactly like a wrong key. Copy these two values instead of retyping them.</string>
+    <string name="settings_package_label">Package name</string>
+    <string name="settings_sha1_label">Signing SHA-1</string>
+    <string name="settings_sha1_unavailable">Could not be read</string>
+    <string name="settings_copy">Copy</string>
+    <string name="settings_copied">Copied</string>
+    <string name="settings_howto">How to get a key</string>
+    <string name="settings_howto_desc">%1$s keeps its setup steps below. These consoles are redesigned often; if a menu has moved, the thread is always the same — application management, create an application, fill in the package name and SHA-1.</string>
+    <string name="steps_tencent_title">Tencent Location · lbs.qq.com</string>
+    <string name="steps_tencent_body">1. Sign in to Tencent Location Services, then Console → Application management → My applications.\n2. Create an application, then add a Key under it.\n3. Enable the products you need: Android SDK, plus WebService API for the HTTP interfaces such as reverse geocoding.\n4. Enter the package name and the SHA-1.\n5. Copy the resulting Key into the Tencent field above.</string>
+    <string name="settings_privacy_note">Keys stay on this device, in the module’s own preferences, and are sent only to the platform’s own servers by that platform’s SDK.</string>
+</resources>

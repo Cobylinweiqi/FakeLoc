@@ -1,0 +1,17 @@
+*.iml
+.gradle/
+.kotlin/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# WorkBuddy 的工程数据（含逐日开发日志与设备信息），只属于本机，不进公开仓库。
+.workbuddy/

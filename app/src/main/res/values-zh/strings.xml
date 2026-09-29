@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FakeLoc</string>
+    <string name="module_description">LSPosed 虚拟定位 —— 无需开启「模拟位置」即可改写 GPS</string>
+
+    <!-- 模块 / 服务状态 -->
+    <string name="status_module_active">模块已激活</string>
+    <string name="status_module_inactive">模块未激活</string>
+    <string name="service_unbound_title">未连接到 LSPosed 服务</string>
+    <string name="service_unbound_desc">请在 LSPosed 中启用 FakeLoc，然后强行停止本应用并重新打开。模块与 LSPosed 之间通过绑定服务通信。</string>
+
+    <!-- 运行状态 -->
+    <string name="state_running">虚拟定位中</string>
+    <string name="state_stopped">已停止</string>
+    <string name="state_running_sub">目标应用将收到下方坐标</string>
+    <string name="state_stopped_sub">当前未改写任何定位</string>
+
+    <!-- 坐标 -->
+    <string name="label_latitude">纬度</string>
+    <string name="label_longitude">经度</string>
+    <string name="action_use_real_gps">使用真实定位</string>
+    <string name="action_paste">粘贴解析</string>
+    <string name="action_save">保存</string>
+    <string name="action_reset">重置</string>
+    <string name="hint_coord_example">39.908700</string>
+    <string name="toast_saved">坐标已保存</string>
+    <string name="toast_paste_ok">已从剪贴板解析出坐标</string>
+    <string name="toast_paste_failed">剪贴板里没找到可用的坐标</string>
+    <string name="toast_location_denied">定位权限被拒绝</string>
+    <string name="toast_location_failed">暂时拿不到定位，建议到空旷处重试</string>
+    <string name="toast_invalid_coords">纬度需在 −90…90，经度需在 −180…180</string>
+
+    <!-- 地图选点 -->
+    <string name="section_map">地图选点</string>
+    <string name="action_open_map">在地图上选点</string>
+    <string name="map_open_desc">可以搜地址，也可以直接拖动地图，让中央图钉对准目标位置。</string>
+    <string name="map_title">地图选点</string>
+    <string name="map_search_hint">搜索地点、地址或地标</string>
+    <string name="map_search_failed">搜索失败，请检查网络或 API Key</string>
+    <string name="map_resolving">正在解析地址…</string>
+    <string name="map_address_unknown">该点没有可用的地址</string>
+    <string name="map_use_this">使用此位置</string>
+    <string name="map_recenter">回到原点</string>
+    <string name="map_center_hint">拖动地图，图钉所指即所选位置</string>
+    <string name="map_datum_note">底图为腾讯地图，使用 GCJ-02；下方坐标已换算为 WGS-84，与上方坐标框一致。</string>
+    <string name="map_needs_key_title">未配置%1$s地图 Key</string>
+    <string name="map_needs_key_desc">还没有腾讯地图的 Key，无法绘制底图。请在「设置」里填写 —— 设置页同时给出了控制台会索要的包名与 SHA-1。</string>
+    <string name="map_open_settings">打开设置</string>
+    <string name="map_sdk_failed">地图 SDK 启动失败：%1$s</string>
+    <string name="map_sdk_restart">Key 已更改，重启本应用后生效。</string>
+    <string name="map_failed_desc">底图视图没能创建。这里停在本页，而不是把整个应用一起带崩。多半是 Key 填错，或控制台里没勾选对应产品；请检查 Key 并重启本应用后重试。</string>
+    <string name="cd_settings">设置</string>
+    <string name="toast_map_picked">已从地图选定位置</string>
+
+    <!-- 预设 -->
+    <string name="section_presets">常用坐标</string>
+    <string name="preset_beijing">北京</string>
+    <string name="preset_shanghai">上海</string>
+    <string name="preset_guangzhou">广州</string>
+    <string name="preset_shenzhen">深圳</string>
+    <string name="preset_xiamen">厦门</string>
+    <string name="preset_hangzhou">杭州</string>
+    <string name="preset_chengdu">成都</string>
+    <string name="preset_xian">西安</string>
+
+    <!-- 目标应用 -->
+    <string name="section_targets">生效范围</string>
+    <string name="targets_scope_all">LSPosed 作用域内全部应用</string>
+    <string name="targets_scope_all_desc">关闭：只有下方勾选的应用被改写。开启：作用域内所有进程都被改写。</string>
+    <string name="targets_selected_count">已选 %1$d 个应用</string>
+    <string name="targets_also_pick_in_lsposed">别忘了在 LSPosed 里把这些应用也加进模块作用域 —— 这里的名单只决定「谁收到假定位」。</string>
+    <string name="action_pick_targets">选择应用</string>
+    <string name="targets_title">选择目标应用</string>
+    <string name="targets_search_hint">按名称或包名搜索</string>
+    <string name="targets_empty">没有匹配的已安装应用</string>
+    <string name="action_done">完成</string>
+
+    <!-- 高级参数 -->
+    <string name="section_advanced">信号微调</string>
+    <string name="adv_accuracy">水平精度</string>
+    <string name="adv_accuracy_desc">单位米。数值越小，定位看起来越准。</string>
+    <string name="adv_altitude">海拔</string>
+    <string name="adv_altitude_desc">相对 WGS-84 椭球面的高度，单位米。</string>
+    <string name="adv_speed">地面速度</string>
+    <string name="adv_speed_desc">单位米/秒。</string>
+    <string name="adv_drift">步行漂移</string>
+    <string name="adv_drift_desc">在锚点附近随机游走，让轨迹看起来像真人。</string>
+    <string name="adv_drift_radius">漂移半径</string>
+    <string name="adv_drift_speed">漂移速度</string>
+    <string name="adv_anti_mock">隐藏模拟痕迹</string>
+    <string name="adv_anti_mock_desc">抹掉 isFromMockProvider / isMock、mock_location 设置项与 AppOps 检查，让检测方看不到任何异常。</string>
+    <string name="adv_strict_sources">锁定定位源</string>
+    <string name="adv_strict_sources_desc">拦截 WiFi 扫描、基站信息与原始 GNSS（NMEA、测量值）。切断这些输入后，App 无法自行算出真实位置，也就不会几分钟后又跳回去。</string>
+    <string name="adv_map_sdk">接管地图 SDK</string>
+    <string name="adv_map_sdk_desc">直接钩住高德 / 百度 / 腾讯三家的定位 SDK，包括 App 自己单独加载的实例。定位结果不走系统、只从地图 SDK 读的 App 需要这一项。</string>
+    <string name="adv_sync_address">同步伪造地址</string>
+    <string name="adv_sync_address_desc">把地图 SDK 的省 / 市 / 区 / 地址接口改成锚点对应的值（由「地图选点」逆地理得到）。显示定位 SDK 城市名的 App 依赖它 —— 地址保持真实或留空时，它们会一直显示你的真实城市。若某个 App 因此出问题就关掉。</string>
+    <string name="addr_unresolved">城市未解析 · 打开「地图选点」保存一次即可</string>
+
+    <!-- 主操作 -->
+    <string name="action_start">启动虚拟定位</string>
+    <string name="action_stop">停止虚拟定位</string>
+
+    <!-- 其他 -->
+    <string name="cd_expand">展开</string>
+    <string name="cd_collapse">收起</string>
+    <string name="cd_back">返回</string>
+    <string name="cd_clear">清空</string>
+
+    <!-- 地图服务设置 -->
+    <string name="settings_title">设置</string>
+    <!-- v1.6.0: 设置页拆成两个页签。底图与 Key 归「地图配置」，信号微调从首页搬过来，
+         页签名直接复用 section_advanced，避免同一句话在两个资源键里各存一份。 -->
+    <string name="settings_tab_map">地图配置</string>
+    <string name="settings_signal_desc">决定假位置本身长什么样：精度、海拔、速度与轨迹漂移，以及被检测方能看到什么。开关一改就写入配置。</string>
+    <string name="settings_map_service">地图服务</string>
+    <string name="settings_map_service_desc">选点页用腾讯地图作底图，地址查询走系统 Geocoder。模块本体（伪造定位）不需要任何地图 Key —— 这一页只影响「地图选点」。</string>
+    <string name="settings_provider">底图与 Key</string>
+    <string name="settings_provider_desc">本安装包只内置一家底图（腾讯），且不自带任何 Key。请在下方填入你自己的腾讯 Key；申请步骤见下一栏。</string>
+    <string name="settings_provider_ready">已就绪：已填写 Key。</string>
+    <string name="settings_provider_missing_key">还没有 Key，选点页会是一片空白。</string>
+    <string name="provider_tencent">腾讯</string>
+    <string name="settings_key_tencent">腾讯 Key</string>
+    <string name="settings_key_filled">已填写</string>
+    <string name="settings_key_empty">未填写</string>
+    <string name="settings_restart_hint">更改 Key 后需要重启本应用才生效：该 SDK 只在启动时读一次 Key。</string>
+    <string name="settings_console_title">控制台会问你要的两个值</string>
+    <string name="settings_console_desc">腾讯位置服务会把 Key 绑定到这个包名与签名上。差一个字符就会被拒，而报错和「Key 填错了」长得一模一样。请直接复制这两个值，不要手抄。</string>
+    <string name="settings_package_label">包名</string>
+    <string name="settings_sha1_label">签名 SHA-1</string>
+    <string name="settings_sha1_unavailable">读取失败</string>
+    <string name="settings_copy">复制</string>
+    <string name="settings_copied">已复制</string>
+    <string name="settings_howto">如何获取 Key</string>
+    <string name="settings_howto_desc">下面是「%1$s」的申请步骤。这些控制台改版频繁，若菜单找不到，主线永远是：应用管理 → 创建应用 → 填包名与 SHA-1。</string>
+    <string name="steps_tencent_title">腾讯位置服务 · lbs.qq.com</string>
+    <string name="steps_tencent_body">1. 登录腾讯位置服务，进入「控制台 → 应用管理 → 我的应用」。\n2. 创建应用，再在其下「添加 Key」。\n3. 勾选要启用的产品：Android SDK，以及 WebService API（逆地理等 HTTP 接口都走 WebService）。\n4. 填 PackageName 与 SHA1。\n5. 把得到的 Key 复制到上面的腾讯一栏。</string>
+    <string name="settings_privacy_note">Key 只保存在本机模块配置里，且仅由对应平台的 SDK 发往该平台自己的服务器。</string>
+</resources>
