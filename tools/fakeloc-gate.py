@@ -172,6 +172,25 @@ print("stale package-name references: %d" % len(stale_package))
 for item in stale_package:
     print("   ", item)
 
+# ---------------------------------------------------------- signing material
+# The release key must never be in the tree, and a leaked one is not a leak like
+# any other: Android refuses to update a package whose signature differs, so
+# whoever holds the key can sign an update this app will accept. The key itself
+# lives in the developer's home directory where the gate cannot see it, so what
+# is checked is the two things that are: no key file inside the repository, and
+# the ignore rules that keep one out. `keystore.properties` is expected to be
+# present locally and is therefore not flagged — only the ignore rule for it is.
+SIGNING_EXTS = (".jks", ".keystore")
+signing_leaks = []
+for directory, dirnames, names in os.walk("."):
+    dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+    for name in names:
+        if name.lower().endswith(SIGNING_EXTS):
+            signing_leaks.append(os.path.join(directory, name))
+print("signing material inside the repository: %d" % len(signing_leaks))
+for item in signing_leaks:
+    print("   ", item)
+
 # ------------------------------------------------------- declaration counts
 EXPECTED = {
     JAVA + "core/SpoofConfig.kt": {
@@ -446,6 +465,16 @@ EXPECTED = {
         'applicationId = "io.github.coby.fakeloc"': 1,
         'namespace = "com.amo.fakeloc"': 0,
         'applicationId = "com.amo.fakeloc"': 0,
+        # Release signing: real key when `keystore.properties` is present, debug
+        # key otherwise. Asserted because a silent fall back to the debug key
+        # still builds and still installs — it just produces an APK that cannot
+        # upgrade an existing release-signed install, which is a failure only
+        # ever seen on someone else's device.
+        "import java.util.Properties": 1,
+        'val signingProps = rootProject.file("keystore.properties")': 1,
+        "storeFile = file(props.getProperty(\"storeFile\"))": 1,
+        'signingConfig = releaseSigning ?: signingConfigs.getByName("debug")': 1,
+        "Sign release with the debug key so": 0,
         "versionCode = 15": 1,
         'versionName = "1.6.0"': 1,
         "versionCode = 14": 0,
@@ -470,7 +499,6 @@ EXPECTED = {
         "implementation(libs.tencent.map.vector)": 1,
         'manifestPlaceholders["BAIDU_MAP_AK"] = baiduMapAk': 0,
         "val baiduMapAk: String": 0,
-        "import java.util.Properties": 0,
         # v1.4.0 size work: dex compressed, 32-bit .so set dropped.
         # AGP 8.7.3 spells it `packaging.dex.useLegacyPackaging`. The
         # top-level form does not exist on the `packaging` block and
@@ -524,6 +552,20 @@ EXPECTED = {
         "| 包名 | `io.github.coby.fakeloc` |": 1,
         "1.6.0 的应用 ID 变更：`com.amo.fakeloc` → `io.github.coby.fakeloc`": 1,
         "com.amo.fakeloc": 6,
+        # The two SHA-1s a reader has to act on are pinned by count. The release
+        # key's is what goes into the map vendor's console for an official build;
+        # the debug one is only correct for a self-compiled APK, and it also
+        # appears in entries that record builds made before the key existed.
+        "28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0": 3,
+        "cce419e399302d402f2378a57b3c7985e98b66e2": 3,
+    },
+    # Paired with the signing-material scan above: that one catches a key file
+    # that is actually there, this one catches the ignore rules that keep one
+    # out. Losing either rule is invisible until the day it matters.
+    ".gitignore": {
+        "keystore.properties": 1,
+        "*.jks": 1,
+        ".workbuddy/": 1,
     },
 }
 wrong_counts = []
@@ -651,6 +693,7 @@ failures = (
     + len(promised_vendor)
     + len(mismatched)
     + len(stale_package)
+    + len(signing_leaks)
 )
 print("GATE: %s (%d failing checks)" % ("PASS" if failures == 0 else "FAIL", failures))
 sys.exit(0 if failures == 0 else 1)

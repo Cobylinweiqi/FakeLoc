@@ -11,7 +11,13 @@ captures/
 *.apk
 *.aab
 *.keystore
+*.jks
 !debug.keystore
+
+# Release signing material. Kept in the developer's home directory and named
+# here so it can never be staged by accident — a published release key lets
+# anyone sign an update for this package.
+keystore.properties
 
 # WorkBuddy 的工程数据（含逐日开发日志与设备信息），只属于本机，不进公开仓库。
 .workbuddy/

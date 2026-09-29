@@ -1,3 +1,8 @@
+// `java.util.Properties` cannot be spelled out inside this script: the Gradle
+// `java` extension accessor shadows the package name, and the reference dies as
+// `Unresolved reference: util`. Importing the type sidesteps it.
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -62,6 +67,31 @@ android {
         }
     }
 
+    // Release signing material lives outside the repository, read from
+    // `keystore.properties` next to this file (gitignored). Two bindings make
+    // that separation necessary rather than tidy:
+    //
+    //  * Android refuses to update a package whose signature differs, so a key
+    //    that changes between machines silently orphans every existing install.
+    //  * A map key is registered against one package name *and* one
+    //    certificate, so the SHA-1 of this key is a value users must type into
+    //    a vendor console (the app prints it on its settings page).
+    //
+    // Absent file => null => debug key. That is deliberate: a fresh clone
+    // builds out of the box, it just cannot ship an update for this package.
+    val signingProps = rootProject.file("keystore.properties")
+    val releaseSigning = if (signingProps.exists()) {
+        val props = Properties().apply { signingProps.inputStream().use { load(it) } }
+        signingConfigs.create("release") {
+            storeFile = file(props.getProperty("storeFile"))
+            storePassword = props.getProperty("storePassword")
+            keyAlias = props.getProperty("keyAlias")
+            keyPassword = props.getProperty("keyPassword")
+        }
+    } else {
+        null
+    }
+
     buildTypes {
         release {
             // **On, and it is the single reason this APK is a few megabytes
@@ -100,10 +130,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sign release with the debug key so `./gradlew assembleRelease`
-            // produces an installable APK with zero setup. Replace with a real
-            // signingConfig before distributing.
-            signingConfig = signingConfigs.getByName("debug")
+            // Signed with this project's own key when `keystore.properties` is
+            // present, otherwise with the debug key (see the signingConfigs
+            // block above). The two produce **mutually non-upgradable** APKs —
+            // signatures must match for `pm install -r` to succeed, so
+            // switching keys means uninstalling once.
+            signingConfig = releaseSigning ?: signingConfigs.getByName("debug")
         }
     }
 

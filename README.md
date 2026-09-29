@@ -11,8 +11,8 @@ libxposed 架构）与 [auag0/HideMockLocation](https://github.com/auag0/HideMoc
 > **当前状态：v1.6.0 编译通过、静态门禁通过，产出 4.98 MB 的可安装 APK**
 > （体积从 v1.3.2 的 82.7 MB → v1.4.0 的 36.2 MB → v1.5.0 的 4.97 MB，两轮做法都在第五节。
 > **v1.5.1 只动文案**：清掉界面里残留的「在百度地图上选点」与两处「三家平台 / 换一家供应商」的
-> 旧说法。**v1.6.0 把信号微调从首页搬进设置页**，与地图配置分成两个页签 —— 只动界面结构，
-> 体积基本未变。）
+> 旧说法。**v1.6.0 把信号微调从首页搬进设置页**，与地图配置分成两个页签，并把 Release 从 debug
+> 签名换成项目专用密钥 —— 只动界面结构与签名，体积基本未变。）
 > 编译环境（macOS + JDK 17 + 命令行 SDK）与遇到的全部坑都记在第九节，换机器时照着走能省掉几小时。
 > v1.1.x 起已在真机上验证过：高德地图能正常改动定位；**1.2.0 的「接管地图 SDK」通道**覆盖了建行生活
 > 这类内嵌定位 SDK、完全不走 `android.location` 的 App（原理见第八节），坐标与城市名都已确认跟随成功。
@@ -40,11 +40,16 @@ libxposed 架构）与 [auag0/HideMockLocation](https://github.com/auag0/HideMoc
 装完还**必须**在 LSPosed 里启用本模块并勾选作用域，否则一点效果都没有 —— 完整步骤在第六节。
 
 > ⚠️ **自己编译出来的 APK 与 Release 的签名不同，两者不能互相覆盖安装。**
-> Release 用的是 Android 默认 debug 签名（`CN=Android Debug`，SHA-1
-> `cce419e399302d402f2378a57b3c7985e98b66e2`）—— 这样 `./gradlew assembleRelease` 零配置就能出一个
-> 装得上的包。要换成自己的正式签名，改 `app/build.gradle.kts` 里那一行 `signingConfig` 即可；
-> 但**换签名等于换一个 App**，旧版必须先卸载。App 设置页显示的包名与 SHA-1 是当前构建的真实值，
-> 申请地图 Key 时以那里为准。
+> Release 用的是本项目的专用密钥（`CN=FakeLoc`，SHA-1
+> `28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0`），而 `./gradlew assembleRelease` 在**没有**
+> `keystore.properties` 时回落到 Android 默认 debug 签名（`CN=Android Debug`，SHA-1
+> `cce419e399302d402f2378a57b3c7985e98b66e2`）—— 所以直接克隆编译得到的包装得上、能自用，
+> 但**不能覆盖官方 Release**。签名必须一致才能升级，换签名等于换一个 App，旧版要先卸载。
+> App 设置页显示的包名与 SHA-1 是当前构建的真实值，申请地图 Key 时以那里为准。
+>
+> 想用自己的密钥发版：在仓库根目录建 `keystore.properties`（已在 `.gitignore` 里）填
+> `storeFile` / `storePassword` / `keyAlias` / `keyPassword` 四项，构建就会自动改用它。
+> **这个文件和 `.jks` 密钥绝不能进仓库** —— 拿到密钥的人可以签出 App 会接受的更新。
 
 ---
 
@@ -196,8 +201,11 @@ GCJ-02 → WGS-84 这一向没有解析解，代码用三次不动点迭代反�
    | 包名 | `io.github.coby.fakeloc` |
    | 签名 SHA-1 | 见 App 设置页「签名 SHA-1」，带复制按钮 |
 
-   > Release 构建默认用 debug 签名（见 `app/build.gradle.kts`），所以**一个 Key 同时适配
-   > debug 与 release**。换了签名密钥，SHA-1 也要跟着换——一律以 App 里显示的那个为准。
+   > **Key 绑定的是包名 + 签名 SHA-1 这两项，而签名取决于你装的是哪个包。**
+   > 官方 Release 用的是项目专用密钥（SHA-1 `28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0`），
+   > 自己编译默认用 debug 签名（`cce419e399302d402f2378a57b3c7985e98b66e2`）—— 两者**不是**
+   > 同一个 SHA-1，在腾讯控制台登记时要按你实际要装的那个包填。只有一个 Key 的话，
+   > 建议登记你打算长期使用的那一个；不确定就用 App 设置页显示的值（那是当前运行中的真实值）。
 
 4. 把 Key 粘贴到 App 设置页的「腾讯地图 Key」一栏
 5. 重启 App 生效
@@ -237,8 +245,10 @@ echo "sdk.dir=$HOME/android-sdk" > local.properties
 `gradle/wrapper/gradle-wrapper.jar` 与 `gradlew` 都已生成，clone 下来直接就能跑，
 不需要先手动 `gradle wrapper`。
 
-Release 构建默认用 debug 签名，保证 `assembleRelease` 开箱可用；要发布请替换 `app/build.gradle.kts`
-里的 `signingConfig`。
+签名：仓库根目录有 `keystore.properties` 时用它指向的正式密钥，没有则回落到 debug 签名 ——
+所以 clone 下来 `assembleRelease` 开箱可用，**但那个包与官方 Release 签名不同、不能互相覆盖**
+（详见开头那条警告）。要发自己的版本就在根目录建那个文件，四个字段：
+`storeFile` / `storePassword` / `keyAlias` / `keyPassword`。
 
 **R8 打开（1.5.0 起），但有一条不能松的规则。** R8 之前关着，理由是地图 SDK 按名字解析自己的类，
 混淆或裁掉任何一个，表现都是「底图一片空白」或「AK 无效」，**和 Key 填错了长得一模一样**，
@@ -888,6 +898,27 @@ FakeLoc/
 > 倒序排列，最新的在最上面。**下面 1.4.x 及更早的条目里出现的「三家」「百度」「高德」都是当时的
 > 事实**，1.5.0 已经把其中两家移除 —— 读旧条目时请对照本节第一条，不要把它们当成现状。
 > 同理，**1.6.0 之前的条目里写的包名 `com.amo.fakeloc` 也是当时的真实值**，那一年它还没改名。
+
+> **1.6.0 的签名变更：Release 改用项目专用密钥，不再用 debug 签名。**
+>
+> 之前 Release 一直用 Android 默认 debug 签名（`CN=Android Debug`）。那样能编译、能安装，
+> 但**不能长期发布**：debug 密钥跟着机器走，换电脑或重装系统后 SHA-1 就变了，而 Android
+> 只允许同签名的包互相升级 —— 已经装上的人从此收不到更新，只能卸载重装。现在改为从仓库
+> 根目录的 `keystore.properties` 读专用密钥（`CN=FakeLoc`，SHA-1
+> `28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0`，有效期 10 000 天）。
+> **该文件与 `.jks` 都在 `.gitignore` 里，绝不进仓库** —— 拿到密钥的人可以签出 App 会接受的更新。
+>
+> 两条代价说清楚：
+>
+> - **已装的 debug 签名版本不能被覆盖**，签名必须一致才允许升级，所以要先卸载（App 内配置随之丢失）
+> - **地图 Key 绑的是「包名 + SHA-1」**，腾讯控制台里按旧 SHA-1 登记过的 Key 对新 Release 不再适用，
+>   换包时要按 `28a3a1d6…` 重新登记
+>
+> 没有 `keystore.properties` 的克隆仍回落到 debug 签名，`assembleRelease` 开箱可用 —— 只是那个包
+> 与官方 Release 不能互相覆盖。门禁为此新增三组断言：仓库内不得出现 `.jks` / `.keystore`；
+> `.gitignore` 必须含 `*.jks` 与 `keystore.properties`；`signingConfig` 必须走「有 properties 用它、
+> 否则 debug」这条分支（这条最要紧 —— 静默回落到 debug 照样编译、照样安装，只是发出去的包
+> 覆盖不了任何已装用户）。5 种破坏方式定向自证，全部被抓出。
 
 > **1.6.0 的应用 ID 变更：`com.amo.fakeloc` → `io.github.coby.fakeloc`。**
 >
