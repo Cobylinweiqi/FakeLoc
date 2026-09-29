@@ -20,8 +20,8 @@
 # --- Xposed module entry points ---------------------------------------------
 # The class named in META-INF/xposed/java_init.list is instantiated
 # reflectively by the framework. It must survive obfuscation and stripping.
--keep class io.github.coby.fakeloc.xposed.ModuleEntry { *; }
--keep class io.github.coby.fakeloc.xposed.** { *; }
+-keep class io.github.cobylinweiqi.fakeloc.xposed.ModuleEntry { *; }
+-keep class io.github.cobylinweiqi.fakeloc.xposed.** { *; }
 
 # --- libxposed --------------------------------------------------------------
 -keep class io.github.libxposed.** { *; }
@@ -48,7 +48,7 @@
 }
 
 # --- Model classes serialised by hand to JSON -------------------------------
--keep class io.github.coby.fakeloc.core.SpoofConfig { *; }
+-keep class io.github.cobylinweiqi.fakeloc.core.SpoofConfig { *; }
 
 # --- Tencent Map SDK --------------------------------------------------------
 # The SDK resolves its own classes by name in several places: the engine

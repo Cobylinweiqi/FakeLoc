@@ -36,7 +36,7 @@ import sys
 from collections import Counter
 
 ROOT = "app/src/main/java"
-PKG_PREFIX = "app/src/main/java/io/github/coby/fakeloc/"
+PKG_PREFIX = "app/src/main/java/io/github/cobylinweiqi/fakeloc/"
 JAVA = PKG_PREFIX
 RES = "app/src/main/res/"
 
@@ -137,9 +137,14 @@ for item in vanished:
 # `/data/adb/lspd/config/modules_config.db`, and the Xposed-Modules-Repo
 # submission all match on it, and a rename that stops halfway compiles fine,
 # installs fine, and then shows up as a module nobody can look up. v1.6.0 moved
-# it off `com.amo.fakeloc` because `amo.com` is a domain the submitter does not
-# own, and the module repo verifies exactly that before listing a package.
-STALE_PACKAGE = ("com.amo.fakeloc", "com/amo/fakeloc")
+# it off `com.amo.fakeloc` — `amo.com` is not a domain the author owns, and the
+# module repo verifies exactly that before listing a package — onto
+# `io.github.cobylinweiqi.fakeloc`, the `io.github.<GitHub 用户名>` form, which
+# needs no domain at all. All three names are asserted dead: the intermediate
+# `io.github.coby.fakeloc` was never published under, so nothing has any reason
+# to name it, and a half-done second rename is the exact failure this catches.
+STALE_PACKAGE = ("com.amo.fakeloc", "com/amo/fakeloc",
+                 "io.github.coby.fakeloc", "io/github/coby/fakeloc")
 SKIP_DIRS = {".git", ".gradle", ".kotlin", "build", ".idea", ".workbuddy"}
 SKIP_EXT = {".jar", ".png", ".webp", ".jpg", ".jpeg", ".so", ".dex",
             ".apk", ".aab", ".zip", ".ttf", ".otf"}
@@ -457,12 +462,15 @@ EXPECTED = {
     "app/build.gradle.kts": {
         # The application ID is what LSPosed keys everything on — the scope
         # list, this module's config blob, and the module-repo submission.
-        # v1.6.0 renamed it off com.amo.fakeloc: amo.com is not a domain the
-        # submitter owns, and Xposed-Modules-Repo verifies that before it will
-        # list a package. `namespace` moves with it or the entry point named in
+        # v1.6.0 renamed it twice before release: off com.amo.fakeloc (amo.com
+        # is not a domain the author owns, and Xposed-Modules-Repo verifies that
+        # before it will list a package), then onto the account it is actually
+        # published from. `namespace` moves with it or the entry point named in
         # java_init.list stops resolving.
-        'namespace = "io.github.coby.fakeloc"': 1,
-        'applicationId = "io.github.coby.fakeloc"': 1,
+        'namespace = "io.github.cobylinweiqi.fakeloc"': 1,
+        'applicationId = "io.github.cobylinweiqi.fakeloc"': 1,
+        'namespace = "io.github.coby.fakeloc"': 0,
+        'applicationId = "io.github.coby.fakeloc"': 0,
         'namespace = "com.amo.fakeloc"': 0,
         'applicationId = "com.amo.fakeloc"': 0,
         # Release signing: real key when `keystore.properties` is present, debug
@@ -528,15 +536,17 @@ EXPECTED = {
         "-keep class vi.com.** { *; }": 0,
         # The entry point named in META-INF/xposed/java_init.list. Losing it
         # turns this from a module into a plain app with no error anywhere.
-        "-keep class io.github.coby.fakeloc.xposed.ModuleEntry { *; }": 1,
-        "-keep class io.github.coby.fakeloc.xposed.** { *; }": 1,
+        "-keep class io.github.cobylinweiqi.fakeloc.xposed.ModuleEntry { *; }": 1,
+        "-keep class io.github.cobylinweiqi.fakeloc.xposed.** { *; }": 1,
+        "-keep class io.github.cobylinweiqi.fakeloc.core.SpoofConfig { *; }": 1,
     },
     # The three files that make LSPosed treat this APK as a module at all. None
     # of them is checked by the compiler, and every failure mode here is silent:
     # a stale entry point loads as nothing, a missing module.prop means the app
     # simply never appears under Modules.
     "app/src/main/resources/META-INF/xposed/java_init.list": {
-        "io.github.coby.fakeloc.xposed.ModuleEntry": 1,
+        "io.github.cobylinweiqi.fakeloc.xposed.ModuleEntry": 1,
+        "io.github.coby.fakeloc.xposed.ModuleEntry": 0,
         "com.amo.fakeloc.xposed.ModuleEntry": 0,
     },
     "app/src/main/resources/META-INF/xposed/module.prop": {
@@ -549,8 +559,11 @@ EXPECTED = {
     # the package name the Tencent console wants, and the fact that the rename
     # is documented at all.
     "README.md": {
-        "| 包名 | `io.github.coby.fakeloc` |": 1,
-        "1.6.0 的应用 ID 变更：`com.amo.fakeloc` → `io.github.coby.fakeloc`": 1,
+        "| 包名 | `io.github.cobylinweiqi.fakeloc` |": 1,
+        "1.6.0 的应用 ID 变更：`com.amo.fakeloc` → `io.github.cobylinweiqi.fakeloc`": 1,
+        # Where to get the APK, in two places. A stale repo URL sends readers to
+        # somebody else's repository, which looks like a working link.
+        "github.com/Cobylinweiqi/FakeLoc": 2,
         "com.amo.fakeloc": 6,
         # The two SHA-1s a reader has to act on are pinned by count. The release
         # key's is what goes into the map vendor's console for an official build;

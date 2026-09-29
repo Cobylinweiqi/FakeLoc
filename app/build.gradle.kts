@@ -28,7 +28,7 @@ plugins {
  */
 
 android {
-    namespace = "io.github.coby.fakeloc"
+    namespace = "io.github.cobylinweiqi.fakeloc"
     // 36, not 35. `io.github.libxposed:service` — and the `interface` artifact it
     // pulls in — declares `minCompileSdk 36` in its AAR metadata, and AGP fails
     // the build outright rather than downgrade. The module API genuinely uses
@@ -45,7 +45,7 @@ android {
     buildToolsVersion = "35.0.0"
 
     defaultConfig {
-        applicationId = "io.github.coby.fakeloc"
+        applicationId = "io.github.cobylinweiqi.fakeloc"
         minSdk = 29
         targetSdk = 35
         versionCode = 15

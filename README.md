@@ -19,7 +19,7 @@ libxposed 架构）与 [auag0/HideMockLocation](https://github.com/auag0/HideMoc
 > **1.5.0 的模块加载与三条注入通道已用真机 LSPosed 日志验证（见第十三节）；腾讯底图的实际渲染
 > 仍需你填 Key 后确认。**
 >
-> **v1.6.0 起应用 ID 是 `io.github.coby.fakeloc`**（此前为 `com.amo.fakeloc`）。换 ID 是因为要上架
+> **v1.6.0 起应用 ID 是 `io.github.cobylinweiqi.fakeloc`**（此前为 `com.amo.fakeloc`）。换 ID 是因为要上架
 > LSPosed 在线仓库，而那个仓库要求反向域名归提交者所有 —— 原因、代价与影响面见第十三节。
 
 ---
@@ -28,14 +28,16 @@ libxposed 架构）与 [auag0/HideMockLocation](https://github.com/auag0/HideMoc
 
 **走 LSPosed 在线仓库（推荐 —— 装完能自动更新）**
 
-已向官方模块仓库 `Xposed-Modules-Repo` 提交收录，标题 `[submission] io.github.coby.fakeloc`。
-通过之后：LSPosed 管理器 → 「在线仓库」→ 搜索 **FakeLoc**，或直接开模块页
-<https://modules.lsposed.org/module/io.github.coby.fakeloc>。
+已按上游流程提交收录申请：在 `Xposed-Modules-Repo/submission` 开一条标题为
+`[submission] io.github.cobylinweiqi.fakeloc` 的 issue。bot 受理后会在该组织下建一个**同名仓库**
+（`Xposed-Modules-Repo/io.github.cobylinweiqi.fakeloc`）、把作者加成 maintainer，并自动同步它的
+Release。通过之后：LSPosed 管理器 → 「在线仓库」→ 搜索 **FakeLoc**，或直接开模块页
+<https://modules.lsposed.org/module/io.github.cobylinweiqi.fakeloc>。
 **审核期间请走下面这条路。**
 
 **从 Release 拿 APK**
 
-到 [最新 Release](https://github.com/coby/FakeLoc/releases/latest) 下载 `FakeLoc-<版本>-release.apk`。
+到 [最新 Release](https://github.com/Cobylinweiqi/FakeLoc/releases/latest) 下载 `FakeLoc-<版本>-release.apk`。
 
 装完还**必须**在 LSPosed 里启用本模块并勾选作用域，否则一点效果都没有 —— 完整步骤在第六节。
 
@@ -198,7 +200,7 @@ GCJ-02 → WGS-84 这一向没有解析解，代码用三次不动点迭代反�
 
    | 字段 | 值 |
    |---|---|
-   | 包名 | `io.github.coby.fakeloc` |
+   | 包名 | `io.github.cobylinweiqi.fakeloc` |
    | 签名 SHA-1 | 见 App 设置页「签名 SHA-1」，带复制按钮 |
 
    > **Key 绑定的是包名 + 签名 SHA-1 这两项，而签名取决于你装的是哪个包。**
@@ -261,8 +263,8 @@ dex 里 28 726 个类有 21 224 个是 androidx/Compose，因为没人裁剪它�
 - 供应商 SDK：`-keep class com.tencent.** { *; }` + `-keep class com.qq.** { *; }`
   （两个包根是**从产物的 dex 里读出来的**，不是抄的：mapsdk / tencentmap / map / tmsbeacon /
   lbssearch / tmsqmsp + 一个 `com.qq.taf`）。同理还有 `-keepclasseswithmembernames` 保 native 方法名。
-- 模块自己：`META-INF/xposed/java_init.list` 里写的 `io.github.coby.fakeloc.xposed.ModuleEntry` 由框架反射实例化，
-  丢了不会有任何报错，只是这个 App 悄悄不再是模块。整个 `io.github.coby.fakeloc.xposed.**` 都按原名保留。
+- 模块自己：`META-INF/xposed/java_init.list` 里写的 `io.github.cobylinweiqi.fakeloc.xposed.ModuleEntry` 由框架反射实例化，
+  丢了不会有任何报错，只是这个 App 悄悄不再是模块。整个 `io.github.cobylinweiqi.fakeloc.xposed.**` 都按原名保留。
 - 手工序列化的模型：`core/SpoofConfig` 保留（它被手写成 JSON）。
 
 产物断言里专门核这几条，见第十三节 1.5.0。
@@ -359,7 +361,7 @@ dex 里 28 726 个类有 21 224 个是 androidx/Compose，因为没人裁剪它�
 
 ## 六、安装与激活
 
-1. 安装 APK —— 从 [Release](https://github.com/coby/FakeLoc/releases/latest) 下载，或在 LSPosed
+1. 安装 APK —— 从 [Release](https://github.com/Cobylinweiqi/FakeLoc/releases/latest) 下载，或在 LSPosed
    在线仓库里直接装（见开头「下载与安装」）。
 2. 在 LSPosed 里启用 **FakeLoc**。
 3. **配置作用域**（这一步决定了它到底管不管用）：
@@ -847,7 +849,7 @@ FakeLoc/
 ├── local.properties                            ← 不进 git：只有 sdk.dir（Key 不入包，见第四节）
 ├── tools/fakeloc-gate.py                       ← 静态门禁（纯标准库），改完先跑它再构建
 ├── app/src/main/
-│   ├── java/io/github/coby/fakeloc/
+│   ├── java/io/github/cobylinweiqi/fakeloc/
 │   │   ├── App.kt                        Application + LSPosed 服务绑定（不再初始化地图 SDK）
 │   │   ├── MainActivity.kt               单 Activity，四个页面（首页 / 地图 / 目标应用 / 设置）
 │   │   ├── core/                         两侧共用的纯逻辑
@@ -920,12 +922,14 @@ FakeLoc/
 > 否则 debug」这条分支（这条最要紧 —— 静默回落到 debug 照样编译、照样安装，只是发出去的包
 > 覆盖不了任何已装用户）。5 种破坏方式定向自证，全部被抓出。
 
-> **1.6.0 的应用 ID 变更：`com.amo.fakeloc` → `io.github.coby.fakeloc`。**
+> **1.6.0 的应用 ID 变更：`com.amo.fakeloc` → `io.github.cobylinweiqi.fakeloc`。**
 >
 > 起因和功能无关，是**分发**。要把模块收进 LSPosed 的在线模块仓库（`Xposed-Modules-Repo`），
 > 那个仓库会校验应用 ID 的反向域名归提交者所有：要么在自有域名根上挂一条
 > `lsposed-modules-repo-verification=<GitHub 用户名>` 的 TXT 记录，要么用 `io.github.<用户名>` 前缀。
-> `amo.com` 不是本项目作者的域名，所以走第二条。
+> `amo.com` 不是本项目作者的域名，所以走第二条：中间段就是发布本项目的 GitHub 账号
+> （`Cobylinweiqi`；包名一律小写，因此写作 `cobylinweiqi`）。**它必须与开 submission issue
+> 的那个账号一致**，否则仓库不受理。
 >
 > **这是破坏性变更 —— 换应用 ID 等于换一个 App：**
 >
@@ -1015,8 +1019,8 @@ python3 tools/fakeloc-gate.py    # 只有每一项计数都对上，退出码才
   `assets/` 只剩 `assets/tencentmap`，全部路径里搜不到 `Baidu` / `AMap`。
 - **R8 的产物断言（本轮唯一有真实风险的改动）**：dex 类数 28 726 → 4 900，dex 压缩块 1.83 MB
   （`compress_type=8`，`useLegacyPackaging` 仍有效）；`META-INF/xposed/java_init.list` 里仍写着
-  `io.github.coby.fakeloc.xposed.ModuleEntry` 且该类**按原名**存在；清单声明的 `MainActivity` 与 `App`
-  按原名存在；整个 `io.github.coby.fakeloc.xposed.**` 包按原名保留；`core/SpoofConfig` 按原名保留
+  `io.github.cobylinweiqi.fakeloc.xposed.ModuleEntry` 且该类**按原名**存在；清单声明的 `MainActivity` 与 `App`
+  按原名存在；整个 `io.github.cobylinweiqi.fakeloc.xposed.**` 包按原名保留；`core/SpoofConfig` 按原名保留
   （它被手工序列化成 JSON）；腾讯 SDK 2 167 个类原样保留。
 - **真机验证（root 读 LSPosed 日志）**：重启 `com.ccb.longjiLife` 后三个进程（主进程 /
   `:remote` / `:CMCoreService`）全部加载模块，自检行为
@@ -1194,7 +1198,7 @@ E/BaseSearch: The sendurl is: null
 
 **APK 核验**（对 1.3.2 release 产物，用 `aapt2` / `apksigner` / 直接读 zip）：
 
-- 包名 `com.amo.fakeloc`（当时的包名；**v1.6.0 起已改为 `io.github.coby.fakeloc`**，见第十三节），
+- 包名 `com.amo.fakeloc`（当时的包名；**v1.6.0 起已改为 `io.github.cobylinweiqi.fakeloc`**，见第十三节），
   versionCode 10 / versionName 1.3.2
 - compileSdk 36、targetSdk 35，`native-code: arm64-v8a, armeabi-v7a`
 - 权限集与预期完全一致（定位 3 项 + 网络 3 项 + `QUERY_ALL_PACKAGES`）
