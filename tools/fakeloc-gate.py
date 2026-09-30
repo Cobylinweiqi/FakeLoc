@@ -564,7 +564,11 @@ EXPECTED = {
         # Where to get the APK, in two places. A stale repo URL sends readers to
         # somebody else's repository, which looks like a working link.
         "github.com/Cobylinweiqi/FakeLoc": 2,
-        "com.amo.fakeloc": 6,
+        # 5 as of 2026-09-30, down from 6: the header block that spelt the old ID
+        # out ("此前为 …") was cut when the top of the README was reduced to a
+        # single safety notice. What this count protects — that the rename is
+        # documented exactly once, in section 13 — is unaffected.
+        "com.amo.fakeloc": 5,
         # The two SHA-1s a reader has to act on are pinned by count. The release
         # key's is what goes into the map vendor's console for an official build;
         # the debug one is only correct for a self-compiled APK, and it also
