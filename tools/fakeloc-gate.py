@@ -569,7 +569,9 @@ EXPECTED = {
         "io.github.cobylinweiqi.fakeloc": 1,
         "com.amo.fakeloc": 1,
         "28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0": 1,
-        "github.com/Cobylinweiqi/FakeLoc": 1,
+        # 2 as of 2026-09-30, up from 1: the closing line that invites a star
+        # links the repository as well. Both links have to keep pointing here.
+        "github.com/Cobylinweiqi/FakeLoc": 2,
     },
     # Paired with the signing-material scan above: that one catches a key file
     # that is actually there, this one catches the ignore rules that keep one

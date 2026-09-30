@@ -92,3 +92,7 @@
 数据丢失、账号封禁、法律纠纷或其它损失负责。
 
 以上条款不排除或限制依法不能排除或限制的责任。
+
+---
+
+如果这个模块帮到了你，欢迎在 [GitHub 仓库](https://github.com/Cobylinweiqi/FakeLoc) 点个 ⭐ Star。
