@@ -39,6 +39,7 @@
     <string name="map_search_failed">搜索失败，请检查网络或 API Key</string>
     <string name="map_resolving">正在解析地址…</string>
     <string name="map_address_unknown">该点没有可用的地址</string>
+    <string name="map_address_failed">地址解析失败 · 请确认 Key 已开通「逆地址解析」</string>
     <string name="map_use_this">使用此位置</string>
     <string name="map_recenter">回到原点</string>
     <string name="map_center_hint">拖动地图，图钉所指即所选位置</string>
@@ -121,6 +122,8 @@
     <string name="settings_provider_missing_key">还没有 Key，选点页会是一片空白。</string>
     <string name="provider_tencent">腾讯</string>
     <string name="settings_key_tencent">腾讯 Key</string>
+    <string name="settings_sk_tencent">腾讯签名密钥（SK）</string>
+    <string name="settings_sk_tencent_desc">仅当该 Key 开启了「签名校验」时才需要填写：不填的话腾讯会以 status 111 拒绝每一次请求。没开就留空。</string>
     <string name="settings_key_filled">已填写</string>
     <string name="settings_key_empty">未填写</string>
     <string name="settings_restart_hint">更改 Key 后需要重启本应用才生效：该 SDK 只在启动时读一次 Key。</string>

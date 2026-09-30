@@ -219,6 +219,14 @@ EXPECTED = {
         "val mapAkBaidu: String = \"\",": 1,
         "val mapAkAmap: String = \"\",": 1,
         "val mapAkTencent: String = \"\",": 1,
+        # v1.7.1: Tencent's signing secret. Added because a key with 签名校验
+        # switched on is refused with `status 111` until the request carries a
+        # `sig`, and the gateway answers that way for *every* request — the base
+        # map still draws, which is what made this look like an address problem
+        # for so long.
+        "val mapSkTencent: String = \"\",": 1,
+        "fun mapSecretValue(provider: MapProvider): String": 1,
+        "fun withMapSecret(provider: MapProvider, value: String): SpoofConfig": 1,
         "fun mapKeyFor(provider: MapProvider): String?": 1,
         "fun mapKeyConfigured(provider: MapProvider): Boolean": 1,
         "fun mapKeyValue(provider: MapProvider): String": 1,
@@ -250,16 +258,21 @@ EXPECTED = {
         'private const val K_MAP_AK_BAIDU = "map_ak_baidu"': 1,
         'private const val K_MAP_AK_AMAP = "map_ak_amap"': 1,
         'private const val K_MAP_AK_TENCENT = "map_ak_tencent"': 1,
+        # v1.7.1: the signing secret has to be declared, written and read back,
+        # like every other field this blob carries.
+        'private const val K_MAP_SK_TENCENT = "map_sk_tencent"': 1,
         "put(K_MAP_PROVIDER, config.mapProviderId)": 1,
         "put(K_MAP_CREDENTIAL, config.mapCredentialId)": 0,
         "put(K_MAP_AK_BAIDU, config.mapAkBaidu)": 1,
         "put(K_MAP_AK_AMAP, config.mapAkAmap)": 1,
         "put(K_MAP_AK_TENCENT, config.mapAkTencent)": 1,
+        "put(K_MAP_SK_TENCENT, config.mapSkTencent)": 1,
         "mapProviderId = decodeText(json, K_MAP_PROVIDER, defaults.mapProviderId)": 1,
         "mapCredentialId = decodeText(": 0,
         "mapAkBaidu = decodeText(json, K_MAP_AK_BAIDU, defaults.mapAkBaidu)": 1,
         "mapAkAmap = decodeText(json, K_MAP_AK_AMAP, defaults.mapAkAmap)": 1,
         "mapAkTencent = decodeText(json, K_MAP_AK_TENCENT, defaults.mapAkTencent)": 1,
+        "mapSkTencent = decodeText(json, K_MAP_SK_TENCENT, defaults.mapSkTencent)": 1,
     },
     JAVA + "core/PickedAddress.kt": {
         "data class PickedAddress(": 1,
@@ -292,6 +305,23 @@ EXPECTED = {
         "import android.location.Geocoder": 1,
         # v1.4.0: provider-agnostic search, so the Baidu-only suggester is gone.
         "private suspend fun platformSearchPlaces(": 1,
+        # v1.7.0: the SDK path in front of both fallbacks. Asserted by call site
+        # because the failure they guard against is a silent one — an address
+        # that never resolves leaves the picker looking perfectly healthy.
+        # v1.7.1 hands both of them the signing secret as well: a key with
+        # signing switched on is refused with status 111 no matter how correct
+        # the address logic is.
+        "tencentReverseGeocode(context, lookupKey, lookupSecret, centerLat, centerLng)": 1,
+        "tencentSuggestPlaces(": 1,
+        "val lookupSecret by rememberUpdatedState(mapSecret)": 1,
+        # Two lines together: `failed: Boolean,` on its own also matches the
+        # search panel, and the pair pins the one added to PickerFooter — the
+        # flag that has to be read against the `resolving` state beside it.
+        "    resolving: Boolean,\n    failed: Boolean,": 1,
+        # The confirm button must not be pressable while a lookup is in flight:
+        # the address is cleared before each one, so confirming early stores an
+        # anchor with no address at all.
+        "enabled = enabled && !resolving,": 1,
         # v1.4.0: the SDK is brought up by value, and the camera is aimed by
         # value too — no imperative MapView handle on the screen any more.
         "MapSdkBootstrap.ensure(context, config)": 1,
@@ -300,6 +330,9 @@ EXPECTED = {
         # v1.4.0: a view factory that throws must not take the process with it.
         # Three states: no key, failed, drawable.
         "val mapKey = config.mapKeyFor(provider)": 1,
+        # v1.7.1: read raw — to the SDK a blank secret means "do not sign", so it
+        # is a value to pass along rather than a missing one to filter out.
+        "val mapSecret = config.mapSecretValue(provider)": 1,
         "val mapFailure = remember(provider, mapKey)": 1,
         "onFailed = { mapFailure.value = it }": 1,
         "private fun MapFailedPanel(": 1,
@@ -335,6 +368,35 @@ EXPECTED = {
         "onFailed: (Throwable) -> Unit,": 1,
         "buildMapView(context, fail) {": 1,
         "(view as? MapView)?.let { map ->": 1,
+    },
+    # v1.7.0: address lookup through the SDK that is already in the APK. The
+    # declarations carry the weight here, and one of them is the whole point of
+    # the file: without `newSearch` the api key lands in the signing-secret slot
+    # — `TencentSearch(Context, String)` does that — and every request comes back
+    # "请申请并填写开发者密钥" with nothing in the UI to say so. The two address
+    # fields are pinned because they are what the hook side has been asking for
+    # since 1.2.2 and getting nothing.
+    # v1.7.1: the secret became a parameter and the two silent rejection paths
+    # learned to log. Both changes come from the same afternoon — a key with
+    # 签名校验 on answers `111` to *everything*, and the code that could have
+    # said so discarded the status code instead.
+    JAVA + "ui/map/TencentLookup.kt": {
+        "internal data class TencentPlaceHit(": 1,
+        "internal suspend fun tencentReverseGeocode(": 1,
+        "internal suspend fun tencentSuggestPlaces(": 1,
+        "private fun newSearch(context: Context, apiKey: String?, secretKey: String?): TencentSearch": 1,
+        "private fun readAddress(response: Geo2AddressResultObject?): PickedAddress?": 1,
+        # The assumption that this project would never meet a signing key, now
+        # gone along with the constant.
+        "private const val NO_SIGNING_SECRET": 0,
+        "secretKey.orEmpty(),": 1,
+        # The two rejection paths, asserted on the call: the whole point is that
+        # these lines exist at all. Both used to `resume(null)` without a word.
+        "Log.w(": 2,
+        "private const val LOOKUP_TAG = \"FakeLoc/MapLookup\"": 1,
+        "adCode = firstNonBlank(info?.adcode)": 1,
+        "cityCode = firstNonBlank(info?.city_code)": 1,
+        "private fun firstNonBlank(vararg values: String?): String": 1,
     },
     JAVA + "mapsdk/MapSdkBootstrap.kt": {
         "private fun startTencent()": 1,
@@ -377,6 +439,15 @@ EXPECTED = {
         "private fun Steps(": 0,
         "config.mapKeyValue(provider)": 1,
         "it.withMapKey(provider, typed)": 1,
+        # v1.7.1: the signing secret gets its own field beside the key. Both are
+        # still read and written through the provider, so the screen does not
+        # have to know which named field it is editing.
+        "config.mapSecretValue(provider)": 1,
+        "it.withMapSecret(provider, typed)": 1,
+        # Suffixed so the two cannot match each other: the label's resource name
+        # is a prefix of the description's, and a bare count would see two of it.
+        "R.string.settings_sk_tencent),": 1,
+        "R.string.settings_sk_tencent_desc))": 1,
         # v1.6.0: the tuning half of this page arrived from the home screen. The
         # counters below are the mirror image of the ones asserted to be zero in
         # HomeScreen.kt — a move that only lands on the destination side leaves
@@ -483,8 +554,18 @@ EXPECTED = {
         "storeFile = file(props.getProperty(\"storeFile\"))": 1,
         'signingConfig = releaseSigning ?: signingConfigs.getByName("debug")': 1,
         "Sign release with the debug key so": 0,
-        "versionCode = 15": 1,
-        'versionName = "1.6.0"': 1,
+        # v1.7.0 — the picker resolves addresses through the bundled map SDK
+        # first, so that `adcode` / `city_code` have a producer again and the
+        # lookup no longer depends on the ROM shipping a working geocoder.
+        # v1.7.1 — the signing secret became a setting, because a key with
+        # 签名校验 on answers `111` to every request and v1.7.0 had nowhere to
+        # put the secret that would have satisfied it.
+        "versionCode = 17": 1,
+        'versionName = "1.7.1"': 1,
+        "versionCode = 16": 0,
+        'versionName = "1.7.0"': 0,
+        "versionCode = 15": 0,
+        'versionName = "1.6.0"': 0,
         "versionCode = 14": 0,
         'versionName = "1.5.1"': 0,
         "versionCode = 13": 0,

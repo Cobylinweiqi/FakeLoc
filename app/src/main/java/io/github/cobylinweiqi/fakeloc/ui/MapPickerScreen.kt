@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +65,9 @@ import io.github.cobylinweiqi.fakeloc.mapsdk.MapSdkBootstrap
 import io.github.cobylinweiqi.fakeloc.ui.map.MapCanvas
 import io.github.cobylinweiqi.fakeloc.ui.map.PICKER_ZOOM
 import io.github.cobylinweiqi.fakeloc.ui.map.SEARCH_ZOOM
+import io.github.cobylinweiqi.fakeloc.ui.map.TencentPlaceHit
+import io.github.cobylinweiqi.fakeloc.ui.map.tencentReverseGeocode
+import io.github.cobylinweiqi.fakeloc.ui.map.tencentSuggestPlaces
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -89,13 +93,14 @@ private const val MIN_QUERY_LENGTH = 2
  * on the target, or search and let the camera fly there. The address under the
  * pin is resolved on a debounce, so a drag only fires one lookup once it settles.
  *
- * The reverse geocoder is `android.location.Geocoder`, for every case. Baidu's
- * SDK geocoder used to be tried first when Baidu was drawing, because it returned
- * a structured `addressDetail` that the platform geocoder only approximates. That
- * branch is gone with the dependency (2026-09-29) — and it is no loss: it was
- * already the *fallback* path that did the real work, because a Baidu Android-SDK
- * key only authorises the services ticked on it in the console, and this project's
- * own key had search and geocoding disabled. See [platformReverseGeocode].
+ * Address lookup goes through the **map SDK** first. `TencentSearch` is already
+ * inside the bundled map SDK (no new dependency, no second key), it is handed
+ * the same key the map draws with, and it is the only path that can answer
+ * `adcode` / `city_code` — the two fields the hook side has had getters for
+ * since 1.2.2 and no producer for since 1.5.0 removed the Baidu geocoder.
+ * `android.location.Geocoder` stays as the fallback, for the devices where the
+ * SDK lookup is refused; [tencentReverseGeocode] explains what it replaced and
+ * why, [platformReverseGeocode] what it can still supply.
  */
 @Composable
 fun MapPickerScreen(
@@ -111,6 +116,9 @@ fun MapPickerScreen(
 
     val provider = config.mapProvider
     val mapKey = config.mapKeyFor(provider)
+    // Raw, blank included: an empty secret is a meaningful instruction to
+    // Tencent's SDK ("this key does not sign"), not something to filter out.
+    val mapSecret = config.mapSecretValue(provider)
     val configured = config.mapKeyConfigured(provider)
 
     // --------------------------------------------------------------- the SDK
@@ -167,6 +175,12 @@ fun MapPickerScreen(
     val resolved = remember { mutableStateOf(PickedAddress.NONE) }
     val resolving = remember { mutableStateOf(false) }
 
+    // Set when both lookup paths come up empty. Deliberately not folded into
+    // `address == null`: "this key is not allowed to geocode" and "you have not
+    // aimed at anything yet" need opposite responses from whoever is looking at
+    // the screen, and an unresolved address is otherwise silent.
+    val lookupFailed = remember { mutableStateOf(false) }
+
     var query by remember { mutableStateOf("") }
     val hits = remember { mutableStateOf<List<PlaceHit>>(emptyList()) }
     val searchFailed = remember { mutableStateOf(false) }
@@ -187,6 +201,17 @@ fun MapPickerScreen(
     // reads them for — it answers the target SDK's `getCity()` / `getProvince()`
     // getters and looks the name up in the app's own table.
     val centerWgs = center.value
+
+    // Read through `rememberUpdatedState` so that a key pasted while this screen
+    // is open reaches the next lookup — the effect below is keyed on the centre
+    // alone and would otherwise hold the key it started with.
+    val lookupKey by rememberUpdatedState(mapKey)
+
+    // The signing secret gets the same treatment, and for the same reason: it is
+    // edited on the settings page rather than here, but this screen can already
+    // be open when it changes.
+    val lookupSecret by rememberUpdatedState(mapSecret)
+
     LaunchedEffect(centerWgs) {
         val (centerLat, centerLng) = centerWgs
         resolving.value = true
@@ -195,12 +220,26 @@ fun MapPickerScreen(
         // address, which would pair the new coordinates with the old city.
         resolved.value = PickedAddress.NONE
         address.value = null
+        lookupFailed.value = false
         delay(GEOCODE_DEBOUNCE_MS)
 
-        val picked = platformReverseGeocode(context, centerLat, centerLng)
+        // SDK first, platform second. The SDK path is the one that knows the
+        // adcode and the city code, and the one that does not need the ROM to
+        // have a working geocoder of its own; the platform path is tried
+        // whenever it produced nothing at all, including the case where it
+        // answered but had no administrative name to give.
+        val viaSdk = tencentReverseGeocode(context, lookupKey, lookupSecret, centerLat, centerLng)
+        val picked = if (viaSdk != null && viaSdk.isResolved) {
+            viaSdk
+        } else {
+            platformReverseGeocode(context, centerLat, centerLng)
+        }
+
         if (picked.isResolved) {
             resolved.value = picked
             address.value = picked.line.ifBlank { picked.city }
+        } else {
+            lookupFailed.value = true
         }
         resolving.value = false
     }
@@ -214,7 +253,29 @@ fun MapPickerScreen(
             return@LaunchedEffect
         }
         delay(SEARCH_DEBOUNCE_MS)
-        val found = platformSearchPlaces(context, keyword)
+
+        // Same order as the reverse lookup, for the same reason: the SDK answers
+        // on devices where the platform geocoder has no backend. `null` means
+        // the lookup failed and an empty list means it succeeded with no
+        // matches — the panel says different things about the two, so they are
+        // kept apart all the way there.
+        val viaSdk = tencentSuggestPlaces(
+            context,
+            lookupKey,
+            lookupSecret,
+            keyword,
+            centerWgs.first,
+            centerWgs.second,
+        )
+        val found = viaSdk?.map { hit ->
+            PlaceHit(
+                label = hit.title,
+                region = hit.region,
+                latitude = hit.latitude,
+                longitude = hit.longitude,
+            )
+        } ?: platformSearchPlaces(context, keyword)
+
         // A query that changed while this one was in flight must not get to paint
         // rows for a keyword the user has already replaced.
         if (query.trim() != keyword) return@LaunchedEffect
@@ -286,6 +347,7 @@ fun MapPickerScreen(
             longitude = centerWgs.second,
             address = address.value,
             resolving = resolving.value,
+            failed = lookupFailed.value,
             enabled = configured,
             onRecentre = { aimAt(initialLatitude, initialLongitude, PICKER_ZOOM) },
             onConfirm = { onPicked(centerWgs.first, centerWgs.second, resolved.value) },
@@ -357,22 +419,15 @@ private suspend fun platformSearchPlaces(
 /**
  * Reverse-geocodes a WGS-84 point with the **platform** geocoder.
  *
- * This is the only reverse-geocode path now, and it is also the one that was
- * already doing the work before the Baidu branch was removed. Baidu's own
- * geocoder is not always usable: a Baidu Android-SDK key only authorises the
- * services ticked on it in the console, and a key that renders map tiles
- * perfectly can still answer every search and geocode call with silence while
- * logging `errorcode 240, APP 服务被禁用` — which is exactly what this project's
- * own key does (measured on the test device, 2026-09-29). The visible symptom was
- * a picker whose map looked fine but that never resolved an address, and a home
- * screen whose city never followed the pin.
+ * This is the **fallback** behind [tencentReverseGeocode], not the primary path,
+ * and the ordering is not a preference: on a mainland ROM `Geocoder.isPresent()`
+ * can be true while every lookup answers with an empty list and no error, which
+ * reads from the outside as a module that does nothing. It is kept because it
+ * needs no key at all and costs nothing to try second.
  *
- * Field mapping is Android's, not Baidu's: `adminArea` is the province,
- * `locality` the city, `subLocality` the district. That is close enough for the
- * one thing the address is used for — answering the target SDK's `getCity()` /
- * `getProvince()` getters with the administrative name its own lookup table
- * expects. Baidu's `addressDetail` was marginally sharper, but a name that
- * arrives is worth more than a finer-grained one that does not.
+ * Its field mapping is Android's: `adminArea` is the province, `locality` the
+ * city, `subLocality` the district. The two things it cannot supply — `adcode`
+ * and `city_code` — are the ones the SDK path adds.
  *
  * Returns [PickedAddress.NONE] when the platform has no geocoder (some builds
  * ship none) or the lookup fails; the caller then keeps reporting "unresolved"
@@ -791,6 +846,7 @@ private fun PickerFooter(
     longitude: Double,
     address: String?,
     resolving: Boolean,
+    failed: Boolean,
     enabled: Boolean,
     onRecentre: () -> Unit,
     onConfirm: () -> Unit,
@@ -805,6 +861,14 @@ private fun PickerFooter(
                 Text(
                     text = when {
                         resolving -> stringResource(R.string.map_resolving)
+                        // Named cause before generic symptom. On the SDK path an
+                        // unresolved address almost always means the key is not
+                        // authorised for reverse geocoding (or the network is
+                        // gone), and "unknown address" gives the user nothing to
+                        // act on — which is how the same failure went unnoticed
+                        // for a release.
+                        address.isNullOrBlank() && failed ->
+                            stringResource(R.string.map_address_failed)
                         address.isNullOrBlank() -> stringResource(R.string.map_address_unknown)
                         else -> address.orEmpty()
                     },
@@ -858,7 +922,14 @@ private fun PickerFooter(
 
             Button(
                 onClick = onConfirm,
-                enabled = enabled,
+                // **Not while a lookup is in flight.** The address is cleared
+                // before each lookup and only filled in once the reply lands, so
+                // confirming during the debounce stores an anchor that carries no
+                // address at all — coordinates that move while the city name
+                // stays put, which is the exact symptom this path exists to
+                // remove. Waiting costs one debounce interval; the alternative
+                // silently throws the address away.
+                enabled = enabled && !resolving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),

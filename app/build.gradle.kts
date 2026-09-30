@@ -48,8 +48,8 @@ android {
         applicationId = "io.github.cobylinweiqi.fakeloc"
         minSdk = 29
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.6.0"
+        versionCode = 17
+        versionName = "1.7.1"
 
         ndk {
             // **arm64-v8a only.** The bundled engine publishes both ARM variants,

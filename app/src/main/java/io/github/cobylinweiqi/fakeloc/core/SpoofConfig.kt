@@ -163,6 +163,23 @@ data class SpoofConfig(
     val mapAkTencent: String = "",
 
     /**
+     * Tencent's signing secret (`SK`) for [mapAkTencent].
+     *
+     * Only needed when that key has 签名校验 ("key signing") switched on in the
+     * console. Tencent's gateway then refuses every unsigned request with
+     * `status 111 签名验证失败` — which is exactly what this project hit on
+     * 2026-09-30 with a key that drew tiles perfectly and could not resolve an
+     * address to save its life.
+     *
+     * Blank is the correct value for a key without signing: the SDK appends a
+     * `sig` parameter only when it was handed a non-empty secret
+     * (`com.tencent.mapsdk.internal.mm` returns early on an empty key — read off
+     * the bytecode of `tencent-map-vector-sdk:5.9.0`), so leaving this alone
+     * keeps the request unsigned, exactly as before.
+     */
+    val mapSkTencent: String = "",
+
+    /**
      * When true, *every* process in the LSPosed scope is spoofed and
      * [targetPackages] is ignored. Useful when you would rather curate the
      * scope in LSPosed itself.
@@ -256,6 +273,23 @@ data class SpoofConfig(
      */
     fun withMapKey(provider: MapProvider, value: String): SpoofConfig = when (provider) {
         MapProvider.TENCENT -> copy(mapAkTencent = value)
+    }
+
+    /**
+     * [provider]'s signing secret verbatim, blank included.
+     *
+     * Raw rather than nullable for the same reason [mapKeyValue] is: this is what
+     * a text field binds to. There is deliberately no `…For` twin — the SDK takes
+     * the empty string as "do not sign", so the blank value is a meaningful input
+     * here rather than something to be filtered out.
+     */
+    fun mapSecretValue(provider: MapProvider): String = when (provider) {
+        MapProvider.TENCENT -> mapSkTencent
+    }
+
+    /** [this] with [provider]'s signing secret replaced by [value]. */
+    fun withMapSecret(provider: MapProvider, value: String): SpoofConfig = when (provider) {
+        MapProvider.TENCENT -> copy(mapSkTencent = value)
     }
 
     /**

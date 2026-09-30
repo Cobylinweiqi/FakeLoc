@@ -39,6 +39,7 @@
     <string name="map_search_failed">Search failed — check the network or the API key</string>
     <string name="map_resolving">Resolving address…</string>
     <string name="map_address_unknown">No address for this point</string>
+    <string name="map_address_failed">Address lookup failed · check the key allows reverse geocoding</string>
     <string name="map_use_this">Use this location</string>
     <string name="map_recenter">Recentre</string>
     <string name="map_center_hint">Drag the map — the pin marks the centre</string>
@@ -122,6 +123,8 @@
     <string name="settings_provider_missing_key">No key yet; the picker will show an empty map until you add one.</string>
     <string name="provider_tencent">Tencent</string>
     <string name="settings_key_tencent">Tencent Key</string>
+    <string name="settings_sk_tencent">Tencent signing secret (SK)</string>
+    <string name="settings_sk_tencent_desc">Needed only when that key has key signing switched on: without the matching secret, Tencent rejects every request with status 111. Leave blank otherwise.</string>
     <string name="settings_key_filled">set</string>
     <string name="settings_key_empty">not set</string>
     <string name="settings_restart_hint">A key change takes effect after this app is restarted: the SDK reads its key once, at launch.</string>

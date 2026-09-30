@@ -49,6 +49,7 @@ object ConfigCodec {
     private const val K_MAP_AK_BAIDU = "map_ak_baidu"
     private const val K_MAP_AK_AMAP = "map_ak_amap"
     private const val K_MAP_AK_TENCENT = "map_ak_tencent"
+    private const val K_MAP_SK_TENCENT = "map_sk_tencent"
     private const val K_SCOPE_ALL = "scope_all"
     private const val K_TARGETS = "targets"
 
@@ -82,6 +83,7 @@ object ConfigCodec {
         put(K_MAP_AK_BAIDU, config.mapAkBaidu)
         put(K_MAP_AK_AMAP, config.mapAkAmap)
         put(K_MAP_AK_TENCENT, config.mapAkTencent)
+        put(K_MAP_SK_TENCENT, config.mapSkTencent)
         put(K_SCOPE_ALL, config.scopeAll)
         put(K_TARGETS, JSONArray(config.targetPackages.sorted()))
     }.toString()
@@ -135,6 +137,7 @@ object ConfigCodec {
             mapAkBaidu = decodeText(json, K_MAP_AK_BAIDU, defaults.mapAkBaidu),
             mapAkAmap = decodeText(json, K_MAP_AK_AMAP, defaults.mapAkAmap),
             mapAkTencent = decodeText(json, K_MAP_AK_TENCENT, defaults.mapAkTencent),
+            mapSkTencent = decodeText(json, K_MAP_SK_TENCENT, defaults.mapSkTencent),
             scopeAll = json.optBoolean(K_SCOPE_ALL, defaults.scopeAll),
             targetPackages = decodeTargets(json.optJSONArray(K_TARGETS)),
         )

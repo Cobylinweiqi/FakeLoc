@@ -259,6 +259,20 @@ private fun ProviderCard(
             onValueChange = { typed -> onUpdate { it.withMapKey(provider, typed) } },
         )
 
+        // Only meaningful for a key with 签名校验 switched on, and harmless
+        // otherwise, so it is always visible rather than hidden behind a switch
+        // the user would have to go and find first. The description says what
+        // happens with it blank, because that is the state most people will
+        // leave it in.
+        Spacer(Modifier.height(12.dp))
+        Body(stringResource(R.string.settings_sk_tencent_desc))
+        Spacer(Modifier.height(8.dp))
+        KeyField(
+            label = stringResource(R.string.settings_sk_tencent),
+            value = config.mapSecretValue(provider),
+            onValueChange = { typed -> onUpdate { it.withMapSecret(provider, typed) } },
+        )
+
         Spacer(Modifier.height(14.dp))
         RowDivider()
         Spacer(Modifier.height(10.dp))
