@@ -196,6 +196,48 @@ print("signing material inside the repository: %d" % len(signing_leaks))
 for item in signing_leaks:
     print("   ", item)
 
+# ------------------------------------------------- credentials left in the tree
+# The one credential this project asks a user to paste in is the Tencent key
+# pair, and the mistake this guards against is a paste that lands somewhere
+# committed — an example in the README, a comment recording what a debugging
+# session turned up. Neither value has any reason to exist in the tree: the app
+# reads both from the settings screen at runtime and keeps them in its own
+# private preferences. The patterns below describe the *public shapes* of the
+# two values (a key is six uppercase groups; a secret is 32 mixed-case
+# alphanumerics) and carry no secret of their own.
+#
+# `keystore.properties` genuinely holds a 32-character secret of the same shape
+# and is skipped anyway: it is ignored, so it cannot be committed, and the
+# signing-material check above already owns it. `local.properties` is skipped
+# for the same reason — it is ignored, and its `sdk.dir` is a path, not a
+# credential.
+SECRET_SHAPES = (
+    ("key", re.compile(r"\b[A-Z0-9]{4,6}(?:-[A-Z0-9]{4,6}){5}\b")),
+    ("secret", re.compile(r"(?=[A-Za-z0-9]{32}\b)"
+                          r"(?=[^\s]*[A-Z])(?=[^\s]*[a-z])(?=[^\s]*\d)"
+                          r"[A-Za-z0-9]{32}")),
+)
+SECRET_SKIP_NAMES = {"keystore.properties", "local.properties"}
+secret_hits = []
+for directory, dirnames, names in os.walk("."):
+    dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+    for name in names:
+        if os.path.splitext(name)[1].lower() in SKIP_EXT:
+            continue
+        if name in SECRET_SKIP_NAMES:
+            continue
+        path = os.path.join(directory, name)
+        try:
+            text = read(path)
+        except OSError:
+            continue
+        for label, pattern in SECRET_SHAPES:
+            for found in pattern.finditer(text):
+                secret_hits.append((path, label, found.group()[:8] + "…"))
+print("credential-shaped strings in the tree: %d" % len(secret_hits))
+for item in secret_hits:
+    print("   ", item)
+
 # ------------------------------------------------------- declaration counts
 EXPECTED = {
     JAVA + "core/SpoofConfig.kt": {
@@ -789,6 +831,7 @@ failures = (
     + len(mismatched)
     + len(stale_package)
     + len(signing_leaks)
+    + len(secret_hits)
 )
 print("GATE: %s (%d failing checks)" % ("PASS" if failures == 0 else "FAIL", failures))
 sys.exit(0 if failures == 0 else 1)
