@@ -554,27 +554,22 @@ EXPECTED = {
         "targetApiVersion=101": 1,
         "staticScope=false": 1,
     },
-    # Exempt from the broad stale-package scan (see above) and pinned here
-    # instead. The two positive assertions are the ones a reader would act on:
-    # the package name the Tencent console wants, and the fact that the rename
-    # is documented at all.
+    # Rewritten on 2026-09-30 as a short user-facing document; the ~1280-line
+    # build log it replaced is still in git (5076c93). Every value below is
+    # deliberately spelt out exactly once in the new text, which is what makes a
+    # count meaningful here:
+    #   * the package name the Tencent console asks for, plus the old one — an
+    #     install under the old name is a different app and cannot be upgraded
+    #     in place, so that line earns its keep;
+    #   * the SHA-1 of the official Release key. A self-built APK signs with a
+    #     different certificate, and the README now says so without naming the
+    #     debug key at all, so that assertion is dropped rather than pinned to 0;
+    #   * the repository URL — a stale one looks like a working link.
     "README.md": {
-        "| 包名 | `io.github.cobylinweiqi.fakeloc` |": 1,
-        "1.6.0 的应用 ID 变更：`com.amo.fakeloc` → `io.github.cobylinweiqi.fakeloc`": 1,
-        # Where to get the APK, in two places. A stale repo URL sends readers to
-        # somebody else's repository, which looks like a working link.
-        "github.com/Cobylinweiqi/FakeLoc": 2,
-        # 5 as of 2026-09-30, down from 6: the header block that spelt the old ID
-        # out ("此前为 …") was cut when the top of the README was reduced to a
-        # single safety notice. What this count protects — that the rename is
-        # documented exactly once, in section 13 — is unaffected.
-        "com.amo.fakeloc": 5,
-        # The two SHA-1s a reader has to act on are pinned by count. The release
-        # key's is what goes into the map vendor's console for an official build;
-        # the debug one is only correct for a self-compiled APK, and it also
-        # appears in entries that record builds made before the key existed.
-        "28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0": 3,
-        "cce419e399302d402f2378a57b3c7985e98b66e2": 3,
+        "io.github.cobylinweiqi.fakeloc": 1,
+        "com.amo.fakeloc": 1,
+        "28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0": 1,
+        "github.com/Cobylinweiqi/FakeLoc": 1,
     },
     # Paired with the signing-material scan above: that one catches a key file
     # that is actually there, this one catches the ignore rules that keep one
