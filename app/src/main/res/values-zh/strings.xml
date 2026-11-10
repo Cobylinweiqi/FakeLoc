@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">FakeLoc</string>
+    <string name="app_name">飞雷神</string>
     <string name="module_description">LSPosed 虚拟定位 —— 无需开启「模拟位置」即可改写 GPS</string>
 
     <!-- 模块 / 服务状态 -->
     <string name="status_module_active">模块已激活</string>
     <string name="status_module_inactive">模块未激活</string>
     <string name="service_unbound_title">未连接到 LSPosed 服务</string>
-    <string name="service_unbound_desc">请在 LSPosed 中启用 FakeLoc，然后强行停止本应用并重新打开。模块与 LSPosed 之间通过绑定服务通信。</string>
+    <string name="service_unbound_desc">请在 LSPosed 中启用飞雷神，然后强行停止本应用并重新打开。模块与 LSPosed 之间通过绑定服务通信。</string>
 
     <!-- 运行状态 -->
     <string name="state_running">虚拟定位中</string>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FakeLoc static gate.
+"""BlinkLoc static gate.
 
 Four mechanisms, each of which has caught a real defect in this repo:
 
@@ -435,7 +435,7 @@ EXPECTED = {
         # The two rejection paths, asserted on the call: the whole point is that
         # these lines exist at all. Both used to `resume(null)` without a word.
         "Log.w(": 2,
-        "private const val LOOKUP_TAG = \"FakeLoc/MapLookup\"": 1,
+        "private const val LOOKUP_TAG = \"BlinkLoc/MapLookup\"": 1,
         "adCode = firstNonBlank(info?.adcode)": 1,
         "cityCode = firstNonBlank(info?.city_code)": 1,
         "private fun firstNonBlank(vararg values: String?): String": 1,
@@ -694,7 +694,7 @@ EXPECTED = {
         "28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0": 1,
         # 2 as of 2026-09-30, up from 1: the closing line that invites a star
         # links the repository as well. Both links have to keep pointing here.
-        "github.com/Cobylinweiqi/FakeLoc": 2,
+        "github.com/Cobylinweiqi/BlinkLoc": 2,
     },
     # Paired with the signing-material scan above: that one catches a key file
     # that is actually there, this one catches the ignore rules that keep one

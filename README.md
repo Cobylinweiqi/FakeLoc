@@ -1,4 +1,4 @@
-# FakeLoc
+# 飞雷神 BlinkLoc
 
 **虚拟定位模块**：选点、粘贴或手输坐标，把假位置作用于你指定的应用。
 
@@ -22,8 +22,8 @@
 
 ### 1. 安装
 
-从 [最新 Release](https://github.com/Cobylinweiqi/FakeLoc/releases/latest) 下载
-`FakeLoc-<版本>-release.apk`，或在 LSPosed 管理器的「在线仓库」里搜 **FakeLoc** 直接装。
+从 [最新 Release](https://github.com/Cobylinweiqi/BlinkLoc/releases/latest) 下载
+`BlinkLoc-<版本>-release.apk`，或在 LSPosed 管理器的「在线仓库」里搜 **BlinkLoc** 直接装。
 
 包名是 `io.github.cobylinweiqi.fakeloc`。APK 用本项目专用密钥签名，**自己编译出来的包签名不同，
 两者不能互相覆盖安装** —— 更新请始终走 Release。更早的 `com.amo.fakeloc` 是另一个 App，
@@ -31,7 +31,7 @@
 
 ### 2. 在 LSPosed 里激活
 
-1. **启用 FakeLoc** 模块
+1. **启用飞雷神** 模块
 2. **配置作用域**（这一步决定它到底管不管用）：
    - 默认的 `android` 与 `com.android.providers.settings` 负责反检测的全局部分，建议保留
    - 再把你想要伪造定位的 App 逐个勾上
@@ -75,9 +75,9 @@
 - **原始 NMEA / GNSS 观测数据**只在系统级作用域开启时才被压制。只勾目标 App 时，
   `addNmeaListener` 之类仍能拿到与假坐标矛盾的真实卫星数据。
 - **Wi-Fi / 基站指纹完全没做** —— 要对抗基于 BSSID 的定位，那部分得自己加。
-- **`system` 作用域下是本机全量伪造**，包括 FakeLoc 自己的「使用真实定位」按钮。
+- **`system` 作用域下是本机全量伪造**，包括飞雷神自己的「使用真实定位」按钮。
 - 功能开关只在运行中的进程生效，**新增作用域内的 App 需要重启目标 App** 一次。
-- 选点页**需要联网**（底图瓦片与地址查询都走 HTTPS）。地址查询用你填的那个 Key：**没勾「逆地址解析」，或开了「签名校验」却没填 SK，都会解析不出城市名** —— 页面底部会直接说。失败原因会进 logcat，tag 是 `FakeLoc/MapLookup`，带着腾讯返回的 status。
+- 选点页**需要联网**（底图瓦片与地址查询都走 HTTPS）。地址查询用你填的那个 Key：**没勾「逆地址解析」，或开了「签名校验」却没填 SK，都会解析不出城市名** —— 页面底部会直接说。失败原因会进 logcat，tag 是 `BlinkLoc/MapLookup`，带着腾讯返回的 status。
 
 ## 免责声明
 
@@ -102,4 +102,4 @@
 
 ---
 
-如果这个模块帮到了你，欢迎在 [GitHub 仓库](https://github.com/Cobylinweiqi/FakeLoc) 点个 ⭐ Star。
+如果这个模块帮到了你，欢迎在 [GitHub 仓库](https://github.com/Cobylinweiqi/BlinkLoc) 点个 ⭐ Star。

@@ -89,9 +89,9 @@ import kotlin.coroutines.resume
  *
  * This is a logcat tag rather than a LSPosed one on purpose: the picker runs in
  * the module's own process, and the manager only collects log lines from hooked
- * processes. `adb logcat -s FakeLoc/MapLookup` is the reader.
+ * processes. `adb logcat -s BlinkLoc/MapLookup` is the reader.
  */
-private const val LOOKUP_TAG = "FakeLoc/MapLookup"
+private const val LOOKUP_TAG = "BlinkLoc/MapLookup"
 
 /** How long a lookup may take before the caller falls back to its own path. */
 private const val LOOKUP_TIMEOUT_MS = 6_000L

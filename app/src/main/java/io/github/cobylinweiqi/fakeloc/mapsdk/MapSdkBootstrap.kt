@@ -26,7 +26,7 @@ import com.tencent.tencentmap.mapsdk.maps.TencentMapInitializer
  */
 object MapSdkBootstrap {
 
-    private const val TAG = "FakeLoc/MapSdk"
+    private const val TAG = "BlinkLoc/MapSdk"
 
     /** What the SDK in this process was brought up with, if anything. */
     @Volatile

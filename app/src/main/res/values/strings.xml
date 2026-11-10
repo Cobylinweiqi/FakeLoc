@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">FakeLoc</string>
+    <string name="app_name">BlinkLoc</string>
     <string name="module_description">LSPosed virtual location — spoof GPS without enabling mock locations</string>
 
     <!-- Module / service state -->
     <string name="status_module_active">Module active</string>
     <string name="status_module_inactive">Module not active</string>
     <string name="service_unbound_title">LSPosed service unavailable</string>
-    <string name="service_unbound_desc">Enable FakeLoc in LSPosed, force-stop this app, then reopen it. The module talks to LSPosed over its bound service.</string>
+    <string name="service_unbound_desc">Enable BlinkLoc in LSPosed, force-stop this app, then reopen it. The module talks to LSPosed over its bound service.</string>
 
     <!-- Run state -->
     <string name="state_running">Spoofing</string>
