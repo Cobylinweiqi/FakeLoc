@@ -4,6 +4,10 @@
 
 > ⚠️ **仅供合法用途，风险自负** —— 完整条款见文末[免责声明](#免责声明)。
 
+> **1.8.0 起更名为「飞雷神 / BlinkLoc」**，以前的叫法是 `FakeLoc`。包名
+> `io.github.cobylinweiqi.fakeloc` 为了不打断升级**故意没改**，老用户直接覆盖安装，
+> 设置与已存坐标全部保留。
+
 ## 功能
 
 | 功能 | 说明 |
@@ -23,7 +27,8 @@
 ### 1. 安装
 
 从 [最新 Release](https://github.com/Cobylinweiqi/BlinkLoc/releases/latest) 下载
-`BlinkLoc-<版本>-release.apk`，或在 LSPosed 管理器的「在线仓库」里搜 **BlinkLoc** 直接装。
+`BlinkLoc-<版本>-release.apk`，或在 LSPosed 管理器的「在线仓库」里搜 **飞雷神**（系统语言是
+英文时搜 **BlinkLoc**）直接装。
 
 包名是 `io.github.cobylinweiqi.fakeloc`。APK 用本项目专用密钥签名，**自己编译出来的包签名不同，
 两者不能互相覆盖安装** —— 更新请始终走 Release。更早的 `com.amo.fakeloc` 是另一个 App，

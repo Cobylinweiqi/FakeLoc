@@ -602,8 +602,13 @@ EXPECTED = {
         # v1.7.1 — the signing secret became a setting, because a key with
         # 签名校验 on answers `111` to every request and v1.7.0 had nowhere to
         # put the secret that would have satisfied it.
-        "versionCode = 17": 1,
-        'versionName = "1.7.1"': 1,
+        # v1.8.0 — display-only rename (飞雷神 / BlinkLoc). The package name is
+        # deliberately still `fakeloc`, so this is the only version-shaped
+        # signal that the release is the renamed build.
+        "versionCode = 18": 1,
+        'versionName = "1.8.0"': 1,
+        "versionCode = 17": 0,
+        'versionName = "1.7.1"': 0,
         "versionCode = 16": 0,
         'versionName = "1.7.0"': 0,
         "versionCode = 15": 0,
@@ -689,7 +694,9 @@ EXPECTED = {
     #     debug key at all, so that assertion is dropped rather than pinned to 0;
     #   * the repository URL — a stale one looks like a working link.
     "README.md": {
-        "io.github.cobylinweiqi.fakeloc": 1,
+        # 2 as of 2026-11-10: the v1.8.0 rename note repeats it to make the point
+        # that the display name changed but the package name did not.
+        "io.github.cobylinweiqi.fakeloc": 2,
         "com.amo.fakeloc": 1,
         "28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0": 1,
         # 2 as of 2026-09-30, up from 1: the closing line that invites a star
