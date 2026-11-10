@@ -461,6 +461,10 @@ private suspend fun platformReverseGeocode(
             province = province,
             city = city,
             district = district,
+            // `featureName` is Android's name for the thing at the point — the
+            // same slot the SDK path fills from `formatted_addresses.recommend`,
+            // and the only label this path can offer at all.
+            placeName = found.featureName.orEmpty(),
             line = listOf(province, city, district, street)
                 .filter { it.isNotBlank() }
                 .joinToString(""),

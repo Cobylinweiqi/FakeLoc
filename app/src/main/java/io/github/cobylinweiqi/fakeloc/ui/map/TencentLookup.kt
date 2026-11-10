@@ -331,6 +331,18 @@ private fun readAddress(response: Geo2AddressResultObject?): PickedAddress? {
         .filter { it.isNotBlank() }
         .joinToString("")
 
+    // The place *label*, which is a different string from the address and the
+    // one a check-in screen prints in its place chip (企业微信 reads
+    // `TencentLocation.getName()` for exactly this concept — see the Tencent
+    // channel's address list). `pois` is the fallback: `getPoi(false)` above
+    // asks for administrative names only, so that list is normally empty, but a
+    // reply carrying one anyway is a better label than leaving the getter to
+    // report whatever the SDK computed from the real fix.
+    val placeName = firstNonBlank(
+        reverse.formatted_addresses?.recommend,
+        reverse.pois?.firstOrNull()?.title,
+    )
+
     return PickedAddress(
         country = firstNonBlank(component?.nation, info?.nation),
         province = province,
@@ -342,6 +354,7 @@ private fun readAddress(response: Geo2AddressResultObject?): PickedAddress? {
         // The two fields v1.5.0 dropped on the floor, recovered.
         adCode = firstNonBlank(info?.adcode),
         cityCode = firstNonBlank(info?.city_code),
+        placeName = placeName,
         line = reverse.address.orEmpty().ifBlank { joined },
     )
 }

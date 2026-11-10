@@ -270,9 +270,16 @@ private fun StatusHeroCard(config: SpoofConfig, glow: Float) {
         // an app that prints the SDK's own city name will follow — this line does,
         // and says what to do when it will not.
         if (config.mapSdkCompat && config.syncAddress) {
-            val resolvedAddress = listOf(config.addrProvince, config.addrCity, config.addrDistrict)
+            val region = listOf(config.addrProvince, config.addrCity, config.addrDistrict)
                 .filter { it.isNotBlank() }
                 .joinToString("")
+            // The place label first, then the administrative address: that is the
+            // order a check-in screen prints them in, and the label is the one
+            // string that tells the user which POI the fake position will be
+            // recorded as (`TencentLocation.getName()`).
+            val resolvedAddress = listOf(config.addrPlaceName, region)
+                .filter { it.isNotBlank() }
+                .joinToString(" · ")
                 .ifBlank { config.addrLine }
 
             Spacer(Modifier.height(6.dp))

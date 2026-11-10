@@ -248,11 +248,26 @@ internal object HookState {
     /**
      * Builds the fake [Location] handed back to the hooked app.
      *
-     * When [original] is supplied its timing metadata is carried over, because
-     * apps routinely reject or discard a fix whose `time` /
+     * When [original] is supplied and *recent*, its timing metadata is carried
+     * over, because apps routinely reject or discard a fix whose `time` /
      * `elapsedRealtimeNanos` look stale or impossible. The provider string is
      * likewise preserved when it is a real one — an app that asked the `gps`
      * provider and got a `fused` fix back will usually notice.
+     *
+     * ## Why a stale original is *not* carried over
+     *
+     * `getLastKnownLocation` can return a fix from hours ago, and carrying that
+     * timestamp onto the fake position hands the app a coordinate that says "the
+     * device was here this morning". A check-in flow reads exactly that as "no
+     * usable fix yet" and keeps waiting, or falls back to its own engine — the
+     * symptom being a fake point that never becomes selectable, however correct
+     * the coordinate is. Re-dating a stale fix is also what the reference
+     * implementation behind the 企业微信 check-in path does: it builds a fresh
+     * `Location`, stamps `time` and `elapsedRealtimeNanos` from the clock, and
+     * never copies either from what the platform had.
+     *
+     * The bearing (and its accuracy) is still carried over; it is direction, not
+     * freshness, and a fabricated one would be noise.
      */
     fun buildLocation(original: Location?, provider: String? = null): Location {
         val resolvedProvider = when {
@@ -263,11 +278,28 @@ internal object HookState {
 
         val fake = Location(resolvedProvider)
 
+        // `time` is wall-clock milliseconds and 0 means "never set"; subtracting
+        // that from now would otherwise read as a fix from 1970 and qualify as
+        // fresh on the wrong side of the comparison.
+        val originalTime = original?.time ?: 0L
+        val originalIsFresh = originalTime > 0L &&
+            System.currentTimeMillis() - originalTime <= FIX_FRESH_WINDOW_MS
+
         if (original != null) {
-            fake.time = original.time
-            fake.elapsedRealtimeNanos = original.elapsedRealtimeNanos
             fake.bearing = original.bearing
             fake.bearingAccuracyDegrees = original.bearingAccuracyDegrees
+        }
+        if (originalIsFresh) {
+            fake.time = originalTime
+            // A `Location` that carried a `time` but no monotonic clock is
+            // possible (a fix rebuilt by a vendor HAL), and copying the zero
+            // would make the fake look older than the clock it is stamped with.
+            val originalElapsed = original?.elapsedRealtimeNanos ?: 0L
+            fake.elapsedRealtimeNanos = if (originalElapsed > 0L) {
+                originalElapsed
+            } else {
+                SystemClock.elapsedRealtimeNanos() - FIX_LAG_NANOS
+            }
         } else {
             stampTiming(fake)
         }
@@ -358,4 +390,17 @@ internal object HookState {
     /** How far behind "now" a synthetic fix is dated. */
     private const val FIX_LAG_MS = 250L
     private const val FIX_LAG_NANOS = 250_000_000L
+
+    /**
+     * How old the platform's own fix may be before its timestamp is not carried
+     * over to the fake one.
+     *
+     * Five seconds is the interval a location provider is allowed to answer
+     * `getLastKnownLocation` from its cache without re-reading the hardware, so a
+     * fix younger than that is genuinely "the device is here right now" and its
+     * timing is worth preserving exactly. Anything older starts to mean "the
+     * device was there at some point", which is a different claim — see
+     * [buildLocation].
+     */
+    private const val FIX_FRESH_WINDOW_MS = 5_000L
 }

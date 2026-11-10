@@ -125,6 +125,26 @@ data class SpoofConfig(
     val addrTown: String = "",
     val addrAdCode: String = "",
     val addrCityCode: String = "",
+    /**
+     * The **place name** — the POI label, not the address.
+     *
+     * A check-in screen prints two strings: a place ("腾讯滨海大厦") and the
+     * address underneath it ("广东省深圳市南山区…"). The map SDKs publish both,
+     * through different getters: Tencent's `TencentLocation.getName()` and
+     * Amap's `AMapLocation.getPoiName()` carry the label, while `getAddress()` /
+     * `getAddrStr()` carry the formatted line.
+     *
+     * Kept apart from [addrLine] because the two are not interchangeable: an
+     * app that uses the name as a *title* and the address as a subtitle shows
+     * the address twice and the place never. 企业微信's check-in page is exactly
+     * that shape, which is why this field exists.
+     *
+     * Blank means "leave that getter alone" — the same convention as every other
+     * part here. The picker fills it from the reverse-geocode reply's recommended
+     * name (`formatted_addresses.recommend`), which is the label the SDK itself
+     * would have reported for that point.
+     */
+    val addrPlaceName: String = "",
     /** The formatted one-line address, for `getAddrStr()` / `getAddress()`. */
     val addrLine: String = "",
 
@@ -222,9 +242,10 @@ data class SpoofConfig(
      * app will act on, and the one we measured acts on it by keeping its previous
      * city forever.
      *
-     * `getName()` is deliberately absent — on Tencent that is the POI name, not
-     * the address, and substituting the address there would put a street name
-     * where the app expects a shop.
+     * `getName()` / `getPoiName()` answer [addrPlaceName], never [addrLine]: on
+     * Tencent `getName` is the POI label and on Amap `getPoiName` is, and an app
+     * that prints it as a title above the formatted address would end up with
+     * the address in both slots.
      */
     fun addressFor(getter: String): String? {
         val value = when (getter) {
@@ -235,6 +256,7 @@ data class SpoofConfig(
             "getTown", "getTownship" -> addrTown
             "getAdCode", "getAdcode" -> addrAdCode
             "getCityCode" -> addrCityCode
+            "getName", "getPoiName" -> addrPlaceName
             "getAddrStr", "getAddress" -> addrLine
             else -> return null
         }

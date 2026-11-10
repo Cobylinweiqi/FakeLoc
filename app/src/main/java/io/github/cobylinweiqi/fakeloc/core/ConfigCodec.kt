@@ -40,6 +40,11 @@ object ConfigCodec {
     private const val K_ADDR_TOWN = "addr_town"
     private const val K_ADDR_ADCODE = "addr_adcode"
     private const val K_ADDR_CITYCODE = "addr_citycode"
+    // Added in 1.9.0 with [SpoofConfig.addrPlaceName]. A blob written before it
+    // simply has no key and decodes to the empty string, which the address hooks
+    // read as "leave the name getter alone" — the pre-1.9.0 behaviour, byte for
+    // byte, so no migration is needed.
+    private const val K_ADDR_PLACE = "addr_place"
     private const val K_ADDR_LINE = "addr_line"
     private const val K_MAP_PROVIDER = "map_provider"
     // Removed in 1.4.1 along with the built-in key: `map_credential` is no longer
@@ -78,6 +83,7 @@ object ConfigCodec {
         put(K_ADDR_TOWN, config.addrTown)
         put(K_ADDR_ADCODE, config.addrAdCode)
         put(K_ADDR_CITYCODE, config.addrCityCode)
+        put(K_ADDR_PLACE, config.addrPlaceName)
         put(K_ADDR_LINE, config.addrLine)
         put(K_MAP_PROVIDER, config.mapProviderId)
         put(K_MAP_AK_BAIDU, config.mapAkBaidu)
@@ -132,6 +138,7 @@ object ConfigCodec {
             addrTown = decodeText(json, K_ADDR_TOWN, defaults.addrTown),
             addrAdCode = decodeText(json, K_ADDR_ADCODE, defaults.addrAdCode),
             addrCityCode = decodeText(json, K_ADDR_CITYCODE, defaults.addrCityCode),
+            addrPlaceName = decodeText(json, K_ADDR_PLACE, defaults.addrPlaceName),
             addrLine = decodeText(json, K_ADDR_LINE, defaults.addrLine),
             mapProviderId = decodeText(json, K_MAP_PROVIDER, defaults.mapProviderId),
             mapAkBaidu = decodeText(json, K_MAP_AK_BAIDU, defaults.mapAkBaidu),
