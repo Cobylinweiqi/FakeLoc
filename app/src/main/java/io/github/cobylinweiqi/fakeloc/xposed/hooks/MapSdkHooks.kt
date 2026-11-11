@@ -9,6 +9,7 @@ import io.github.cobylinweiqi.fakeloc.xposed.HookState
 import io.github.cobylinweiqi.fakeloc.xposed.SdkDispatch
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.text.SimpleDateFormat
 import java.util.Collections
 import java.util.Date
@@ -39,13 +40,23 @@ import java.util.concurrent.atomic.AtomicBoolean
  * fake position and then settles onto the real one" report, except that with an
  * SDK that never consults the platform it never even starts on the fake position.
  *
+ * ## One vendor, more than one package
+ *
+ * A vendor's Java package is not a constant: Tencent ships the same engine as
+ * `com.tencent.map.geolocation` and, repackaged, as
+ * `com.tencent.map.geolocation.sapp`. Which one an app calls was decided when it
+ * was integrated, and the two are not interchangeable — a hook resolves classes
+ * in *its* process, so naming the wrong one installs nothing and says nothing.
+ * Every Tencent entry point below therefore goes through [TENCENT_FLAVORS]; see
+ * [TencentFlavor] for the case that established it (企业微信's check-in page).
+ *
  * ## The three channels do not work the same way
  *
  * | SDK | Payload | How it is rewritten |
  * |---|---|---|
  * | Amap | `AMapLocation **extends** android.location.Location` | written in place through the inherited setters, and the getters are read through them too |
  * | Baidu | `BDLocation`, a standalone class | written in place through its own public setters |
- * | Tencent | `TencentLocation`, a bare **interface** | the payload cannot be rebuilt, so the concrete class's getters are hooked on first sight |
+ * | Tencent | `TencentLocation`, a bare **interface** (a class in `sapp`) | the payload cannot be rebuilt, so the concrete class's getters are hooked on first sight |
  *
  * The Amap case is the one that looks trivial and is not: `AMapLocation` declares
  * `getLatitude()` reading its **own** field `q`, not the inherited
@@ -135,7 +146,12 @@ internal object MapSdkHooks {
      * all.
      */
     private fun observeAddress(sdk: String, name: String, original: Any?): Any? {
-        if (!HookState.active()) return original
+        // Same switch as the coordinate getters, not merely "spoofing is on": with
+        // `mapSdkCompat` off nothing in this channel rewrites the payload, and a
+        // substituted city there would pair the *real* coordinate with a fake name
+        // — the half-converted state the channel exists to prevent, arrived at from
+        // the other direction.
+        if (!HookState.mapSdkEngaged()) return original
         val cfg = HookState.config()
         // `null` counts as much as a String here, and that is the crux of this
         // channel: the case worth rewriting is precisely the one where the SDK has
@@ -627,21 +643,71 @@ internal object MapSdkHooks {
 
     // ================================================================= Tencent
 
-    private const val TENCENT_LISTENER = "com.tencent.map.geolocation.TencentLocationListener"
-    private const val TENCENT_MANAGER = "com.tencent.map.geolocation.TencentLocationManager"
+    /**
+     * One packaging of Tencent's location SDK.
+     *
+     * The engine is the same in every build; only the Java package differs, and
+     * which one an app ends up with is decided by how it was integrated, not by
+     * the SDK version. Tencent publishes the `com.tencent.map.geolocation` build
+     * for apps that follow its setup guide; some apps — 企业微信 among them —
+     * embed the same classes repackaged under `com.tencent.map.geolocation.sapp`.
+     *
+     * Getting this wrong is silent in the worst possible way: a channel armed
+     * against a package the process does not contain resolves no class, installs
+     * no hook and logs no warning, so the app behaves exactly as if this module
+     * were not installed. That was the state of the 企业微信 check-in path until
+     * 1.7.2 — the module hooked the public package while the app called the
+     * `sapp` one, so the map sat on the real position whatever was configured.
+     * Measured on 2026-10-22 against 企微小打手 1.6.1, whose entire location
+     * channel names the `sapp` pair and nothing else.
+     */
+    private class TencentFlavor(
+        /** Log label, and the key the per-field diagnostics dedupe on. */
+        val label: String,
+        val manager: String,
+        val listener: String,
+        /** An interface in the public build, a class in `sapp` — either is fine. */
+        val location: String,
+    )
 
-    /** Entry points that take a listener, and the teardown that revokes it. */
+    private val TENCENT_FLAVORS = arrayOf(
+        TencentFlavor(
+            "tencent",
+            "com.tencent.map.geolocation.TencentLocationManager",
+            "com.tencent.map.geolocation.TencentLocationListener",
+            "com.tencent.map.geolocation.TencentLocation",
+        ),
+        TencentFlavor(
+            "tencent-sapp",
+            "com.tencent.map.geolocation.sapp.TencentLocationManager",
+            "com.tencent.map.geolocation.sapp.TencentLocationListener",
+            "com.tencent.map.geolocation.sapp.TencentLocation",
+        ),
+    )
+
+    /** Entry points that take a listener. */
     private val TENCENT_ENTRIES = arrayOf(
         "requestLocationUpdates",
         "requestSingleFreshLocation",
     )
 
+    /** Manager methods that return a payload instead of delivering one. */
+    private val TENCENT_PULL_ENTRIES = arrayOf("getLastKnownLocation")
+
     /**
      * The address parts a `TencentLocation` implementation publishes.
      *
-     * Same reasoning as [AMAP_ADDRESS] again, with one twist: the list lands on
-     * whichever class *implements* the interface, and that is only known the first
-     * time a payload shows up — see [rewriteTencentPayload].
+     * Same reasoning as [AMAP_ADDRESS], with one twist: the list lands on whichever
+     * class *implements* the interface, and that is only known the first time a
+     * payload shows up — see [armTencentPayload].
+     *
+     * `getName` is on the list because on Tencent it is the **POI label**, not the
+     * address: a check-in screen prints it as the place ("腾讯滨海大厦") with
+     * `getAddress()` underneath. Leaving it out meant the coordinate and the street
+     * moved while the place name stayed real, which is precisely the half-converted
+     * state this channel exists to prevent. It answers
+     * [io.github.cobylinweiqi.fakeloc.core.SpoofConfig.addrPlaceName], never the
+     * formatted address — see `addressFor`.
      */
     private val TENCENT_ADDRESS = arrayOf(
         "getNation",
@@ -657,64 +723,170 @@ internal object MapSdkHooks {
         "getAddress",
     )
 
+    /**
+     * What a POI row publishes.
+     *
+     * The SDK's picker list is a `List<TencentPoi>` hanging off the payload, and
+     * each element is a place with its own name, address and coordinate. An app
+     * that builds its "choose the place" sheet from that list therefore reads a
+     * *second* copy of the real position — one the payload getters never touch —
+     * and 企业微信's check-in sheet is built exactly that way. Hooking the rows is
+     * what makes the list agree with the map instead of contradicting it.
+     */
+    private val TENCENT_POI_ADDRESS = arrayOf("getName", "getAddress")
+
+    /** Concrete payload classes already hooked, one pass each. */
+    private val tencentPois: MutableSet<Class<*>> =
+        Collections.synchronizedSet(HashSet<Class<*>>())
+
+    /** Listener classes whose `onLocationChanged` is already intercepted. */
+    private val tencentListeners: MutableSet<Class<*>> =
+        Collections.synchronizedSet(HashSet<Class<*>>())
+
     private fun installTencent(loader: ClassLoader) {
-        val listenerClass = HookKit.findClass(loader, TENCENT_LISTENER) ?: return
-        val managerClass = HookKit.findClass(loader, TENCENT_MANAGER) ?: return
+        for (flavor in TENCENT_FLAVORS) {
+            runCatching { installTencentFlavor(loader, flavor) }
+                .onFailure { HookKit.error(TAG, "${flavor.label} channel failed", it) }
+        }
+    }
+
+    private fun installTencentFlavor(loader: ClassLoader, flavor: TencentFlavor) {
+        val managerClass = HookKit.findClass(loader, flavor.manager) ?: return
+
+        // Diagnostic only. The listener is recognised by its *shape* below, not by
+        // this type: the `sapp` build repackages it exactly like the manager, and a
+        // name that drifts one version later must not be able to switch the whole
+        // subscription path off. When this lookup fails, the log says so and the
+        // shape test still arms whatever the app actually passes.
+        if (HookKit.findClass(loader, flavor.listener) == null) {
+            HookKit.warn(TAG, "${flavor.label}: ${flavor.listener} not found — recognising listeners by shape")
+        }
 
         var opened = 0
         for (entry in TENCENT_ENTRIES) {
             opened += HookKit.hookAll(managerClass, entry, TAG) { chain ->
                 val forwarded = chain.proceed()
                 for (argument in chain.args) {
-                    if (argument != null && listenerClass.isInstance(argument)) subscribeTencent(argument)
+                    argument?.let { if (isTencentListener(it)) subscribeTencent(it, flavor) }
                 }
                 forwarded
             }
         }
-        // The one-shot query hands back a payload without ever calling a listener.
-        opened += HookKit.hookAll(managerClass, "getLastKnownLocation", TAG) { chain ->
-            val forwarded = chain.proceed()
-            if (HookState.mapSdkEngaged()) rewriteTencentPayload(forwarded)
-            forwarded
+
+        // The one-shot queries hand back a payload without ever calling a listener.
+        //
+        // Armed whatever the switches say: installing the getter hooks is free and
+        // they gate themselves per read, while *skipping* the install leaves an
+        // object the app has already cached reading the real position for as long
+        // as it lives — the case that motivated the declared-type hook below.
+        for (entry in TENCENT_PULL_ENTRIES) {
+            opened += HookKit.hookAll(managerClass, entry, TAG) { chain ->
+                val forwarded = chain.proceed()
+                armTencentPayload(forwarded, flavor)
+                forwarded
+            }
         }
         HookKit.hookAll(managerClass, "removeUpdates", TAG) { chain ->
             for (argument in chain.args) if (argument != null) SdkDispatch.unregister(argument)
             chain.proceed()
         }
 
+        // The declared payload type, hooked before any fix arrives.
+        //
+        // The lazy path can only arm a class it has *seen*, which is enough when
+        // the app asks for a fix after this module was loaded — and not enough when
+        // the SDK hands back an object it built or cached earlier. When the type is
+        // a concrete class (the `sapp` build's shape) there is something to hook by
+        // name right now; when it is the interface the public build publishes — or
+        // an abstract base with no getter bodies — there is not, and the lazy path
+        // is the only option.
+        val locationClass = HookKit.findClass(loader, flavor.location)
+        if (locationClass != null &&
+            !locationClass.isInterface &&
+            !Modifier.isAbstract(locationClass.modifiers)
+        ) {
+            armTencentPayloadClass(locationClass, flavor)
+        }
+
         if (opened > 0) {
-            HookKit.info(TAG, "Tencent channel armed ($opened entry point(s))")
+            HookKit.info(TAG, "${flavor.label} channel armed ($opened entry point(s))")
         }
     }
 
-    private fun subscribeTencent(listener: Any) {
+    /**
+     * Whether [value] is something the SDK can deliver a fix to.
+     *
+     * A `TencentLocationListener` is an interface with a single interesting
+     * method — `onLocationChanged(TencentLocation, int, String)` — and every
+     * subscription call passes an implementation of it beside a
+     * `TencentLocationRequest`. Testing the method shape rather than the type is
+     * what keeps this working when the build repackages or renames the interface:
+     * the hook needs a method it can intercept, not a name it can compare.
+     *
+     * `TencentLocationRequest` carries no `onLocationChanged`, so the more
+     * numerous argument is rejected without a type lookup.
+     */
+    private fun isTencentListener(value: Any): Boolean =
+        HookKit.methodsNamed(value.javaClass, "onLocationChanged").isNotEmpty()
+
+    private fun subscribeTencent(listener: Any, flavor: TencentFlavor) {
+        // One pass per listener *class*, not per registration.
+        //
+        // A check-in screen re-subscribes on every refresh, and the app typically
+        // builds its listener once and reuses it — so without this guard the same
+        // `Method` would be wrapped again every second, and a hook chain that grows
+        // without bound is a stack overflow in someone else's process. Hooking the
+        // class covers every instance of it, which is what the registration call
+        // was going to give us anyway.
+        if (!tencentListeners.add(listener.javaClass)) return
+
         val hooked = HookKit.hookAll(listener.javaClass, "onLocationChanged", TAG) { chain ->
-            if (HookState.mapSdkEngaged()) rewriteTencentPayload(chain.args.getOrNull(0))
+            // Unconditional for the same reason as the pull path: arming is cheap,
+            // gating happens per getter read, and a payload that arrived while the
+            // module was off must not keep answering with the real fix after it is
+            // switched on.
+            armTencentPayload(chain.args.getOrNull(0), flavor)
             chain.proceed()
         }
         if (hooked > 0) {
-            Diag.event("tencent", "Tencent listener captured (onLocationChanged x$hooked) — the payload class is now hooked")
+            Diag.event(
+                "${flavor.label}-listener",
+                "${flavor.label} listener captured (onLocationChanged x$hooked) — the payload class is now hooked",
+            )
         }
     }
 
     /**
      * Hooks the *concrete* class behind a `TencentLocation`.
      *
-     * `TencentLocation` is an interface with no setters, and its implementation
-     * lives outside the published SDK, so there is nothing to write into and
-     * nothing to construct. Replacing the payload with a `Proxy` would answer the
-     * getters, but the first app that casts the result back to the real class —
-     * and some do — would take a `ClassCastException`. Hooking the getters on
-     * whatever class arrives is the version that cannot crash the app: it is
-     * installed the moment the payload is first seen, before the app's own
+     * `TencentLocation` is an interface with no setters in the public build, and
+     * its implementation lives outside the published SDK, so there is nothing to
+     * write into and nothing to construct. Replacing the payload with a `Proxy`
+     * would answer the getters, but the first app that casts the result back to
+     * the real class — and some do — would take a `ClassCastException`. Hooking the
+     * getters on whatever class arrives is the version that cannot crash the app:
+     * it is installed the moment the payload is first seen, before the app's own
      * callback body reads it.
      *
      * The cost is that there is no active push on this channel: with no way to
      * build a payload there is nothing to push.
+     *
+     * ## Why every getter, not only the coordinate
+     *
+     * Coordinates and the strings describing them are two separate lies. The city,
+     * province, street and POI name the payload carries were computed by the SDK's
+     * **server** from the real fix, so rewriting `getLatitude()` moves none of
+     * them. A check-in screen prints both: a map on the fake point with the real
+     * place name in the chip, or — worse — a record whose coordinates and address
+     * disagree. [TENCENT_ADDRESS] and [TENCENT_POI_ADDRESS] are what keep the two
+     * halves consistent.
      */
-    private fun rewriteTencentPayload(payload: Any?) {
-        if (payload == null) return
-        val clazz = payload.javaClass
+    private fun armTencentPayload(payload: Any?, flavor: TencentFlavor) {
+        val clazz = payload?.javaClass ?: return
+        armTencentPayloadClass(clazz, flavor)
+    }
+
+    private fun armTencentPayloadClass(clazz: Class<*>, flavor: TencentFlavor) {
         if (!tencentPayloads.add(clazz)) return
 
         HookKit.hookAll(clazz, "getLatitude", TAG) { chain ->
@@ -741,6 +913,43 @@ internal object MapSdkHooks {
             cfg.speed
         }
 
-        installAddressReads(clazz, "tencent", TENCENT_ADDRESS)
+        installAddressReads(clazz, flavor.label, TENCENT_ADDRESS)
+        installTencentPoiReads(clazz, flavor)
+    }
+
+    /**
+     * Arms the rows of `getPoiList()` on first sight.
+     *
+     * The list is read, not replaced: keeping the app's own `List` object and
+     * every element's identity means a caller that caches the list, sorts it or
+     * casts an element back to the SDK's POI class keeps working. What changes is
+     * what each element answers — the anchor's coordinate, its place label and its
+     * address — so the picker sheet and the map tell the same story.
+     */
+    private fun installTencentPoiReads(clazz: Class<*>, flavor: TencentFlavor) {
+        HookKit.hookAll(clazz, "getPoiList", TAG) { chain ->
+            val result = chain.proceed()
+            // Armed regardless of the switches, like the payload itself: the row
+            // getters gate per read, and a list handed out while the module was off
+            // must not keep answering with the real places after it is switched on.
+            val first = (result as? List<*>)?.firstOrNull() ?: return@hookAll result
+            armTencentPoi(first.javaClass, flavor)
+            result
+        }
+    }
+
+    private fun armTencentPoi(clazz: Class<*>, flavor: TencentFlavor) {
+        if (!tencentPois.add(clazz)) return
+
+        installAddressReads(clazz, "${flavor.label}-poi", TENCENT_POI_ADDRESS)
+
+        HookKit.hookAll(clazz, "getLatitude", TAG) { chain ->
+            if (!HookState.mapSdkEngaged()) return@hookAll chain.proceed()
+            HookState.positionIn(Datum.GCJ02).first
+        }
+        HookKit.hookAll(clazz, "getLongitude", TAG) { chain ->
+            if (!HookState.mapSdkEngaged()) return@hookAll chain.proceed()
+            HookState.positionIn(Datum.GCJ02).second
+        }
     }
 }

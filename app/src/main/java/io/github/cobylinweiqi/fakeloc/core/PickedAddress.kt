@@ -23,6 +23,14 @@ data class PickedAddress(
     val town: String = "",
     val adCode: String = "",
     val cityCode: String = "",
+    /**
+     * The place label the SDK recommended for this point, e.g. "腾讯滨海大厦".
+     *
+     * This is what a check-in screen prints as the place name; [line] is the
+     * address printed under it. Blank when the reply carried no recommendation,
+     * which the address hooks read as "leave `getName()` alone".
+     */
+    val placeName: String = "",
     /** The formatted one-line address, e.g. "吉林省吉林市船营区…". */
     val line: String = "",
 ) {
@@ -62,6 +70,7 @@ fun SpoofConfig.withAnchor(
     addrTown = address.town,
     addrAdCode = address.adCode,
     addrCityCode = address.cityCode,
+    addrPlaceName = address.placeName,
     addrLine = address.line,
 )
 
@@ -87,5 +96,6 @@ fun SpoofConfig.moveTo(latitude: Double, longitude: Double): SpoofConfig = copy(
     addrTown = "",
     addrAdCode = "",
     addrCityCode = "",
+    addrPlaceName = "",
     addrLine = "",
 )

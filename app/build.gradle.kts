@@ -48,10 +48,11 @@ android {
         applicationId = "io.github.cobylinweiqi.fakeloc"
         minSdk = 29
         targetSdk = 35
-        // 1.10.0 — the scope is now LSPosed's alone. Numbered 1.10.0 rather
-        // than 1.7.2 because 1.8.0 and 1.9.0 are already published; a "1.7.2"
-        // would sort below them while carrying newer code. versionCode 20
-        // continues past 1.9.0's 19 so an install over it is still an upgrade.
+        // 1.10.0 — two changes in one release: the scope is now LSPosed's alone,
+        // and PR #1's sapp Tencent channel is in. Numbered 1.10.0 rather than
+        // 1.7.2 because 1.8.0 and 1.9.0 are already published; a "1.7.2" would
+        // sort below them while carrying newer code. versionCode 20 continues
+        // past 1.9.0's 19 so an install over it is still an upgrade.
         versionCode = 20
         versionName = "1.10.0"
 

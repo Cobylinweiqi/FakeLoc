@@ -279,6 +279,11 @@ EXPECTED = {
         # map still draws, which is what made this look like an address problem
         # for so long.
         "val mapSkTencent: String = \"\",": 1,
+        # v1.7.2: the place *label*, separate from the formatted address. Pinned
+        # because it is the field the 企业微信 check-in chip reads through
+        # `TencentLocation.getName()` — dropping it silently puts the address in
+        # both the title and the subtitle.
+        "val addrPlaceName: String = \"\",": 1,
         "fun mapSecretValue(provider: MapProvider): String": 1,
         "fun withMapSecret(provider: MapProvider, value: String): SpoofConfig": 1,
         "fun mapKeyFor(provider: MapProvider): String?": 1,
@@ -333,11 +338,22 @@ EXPECTED = {
         "mapAkAmap = decodeText(json, K_MAP_AK_AMAP, defaults.mapAkAmap)": 1,
         "mapAkTencent = decodeText(json, K_MAP_AK_TENCENT, defaults.mapAkTencent)": 1,
         "mapSkTencent = decodeText(json, K_MAP_SK_TENCENT, defaults.mapSkTencent)": 1,
+        # v1.7.2: the place label, declared/written/read back like every other
+        # address field. A blob from 1.7.1 has no key and decodes to "".
+        'private const val K_ADDR_PLACE = "addr_place"': 1,
+        "put(K_ADDR_PLACE, config.addrPlaceName)": 1,
+        "addrPlaceName = decodeText(json, K_ADDR_PLACE, defaults.addrPlaceName)": 1,
     },
     JAVA + "core/PickedAddress.kt": {
         "data class PickedAddress(": 1,
         "fun SpoofConfig.withAnchor(": 1,
         "fun SpoofConfig.moveTo(": 1,
+        # v1.7.2: carried by `withAnchor`, cleared by `moveTo` — both asserted
+        # because an address part that survives a coordinate change is exactly
+        # the half-converted state this field exists to prevent.
+        "val placeName: String = \"\",": 1,
+        "addrPlaceName = address.placeName,": 1,
+        "addrPlaceName = \"\",": 1,
     },
     JAVA + "ui/MainViewModel.kt": {
         "it.moveTo(": 5,
@@ -460,6 +476,12 @@ EXPECTED = {
         "private const val LOOKUP_TAG = \"FakeLoc/MapLookup\"": 1,
         "adCode = firstNonBlank(info?.adcode)": 1,
         "cityCode = firstNonBlank(info?.city_code)": 1,
+        # v1.7.2: the recommended place label. It is the *only* producer of
+        # `addrPlaceName`, and therefore of what a check-in chip prints as the
+        # place — losing the line would leave `getName()` answering the SDK's
+        # real POI forever.
+        "reverse.formatted_addresses?.recommend": 1,
+        "placeName = placeName,": 1,
         "private fun firstNonBlank(vararg values: String?): String": 1,
     },
     JAVA + "mapsdk/MapSdkBootstrap.kt": {
@@ -548,6 +570,12 @@ EXPECTED = {
         "if (!applies(current)) {": 1,
         'append(" syncAddress=").append(cfg.syncAddress)': 1,
         'if (cfg.addrCity.isNotBlank()) append(" fakeCity=").append(cfg.addrCity)': 1,
+        # v1.7.2: a `getLastKnownLocation` from hours ago no longer carries its
+        # timestamp onto the fake fix — a check-in flow reads that as "no usable
+        # fix yet". Both halves are pinned: the window, and the branch that
+        # decides between preserving and re-stamping.
+        "private const val FIX_FRESH_WINDOW_MS = 5_000L": 1,
+        "val originalIsFresh = originalTime > 0L &&": 1,
     },
     # The hook half must be untouched by any of this. It forges positions inside
     # the target app's own SDK classes and links against none of them, which is
@@ -565,7 +593,28 @@ EXPECTED = {
         "private val TENCENT_ADDRESS = arrayOf(": 1,
         "installAddressReads(locationClass, \"amap\", AMAP_ADDRESS)": 1,
         "installAddressReads(locationClass, \"baidu\", BAIDU_ADDRESS)": 1,
-        "installAddressReads(clazz, \"tencent\", TENCENT_ADDRESS)": 1,
+        # v1.7.2: Tencent grew a per-flavor label, because the app's Java package
+        # is not a constant. What is pinned here is the pair of package names —
+        # `sapp` is 企业微信's, and dropping it is the silent regression this
+        # release exists to fix — plus the POI path, which is a *second* copy of
+        # the real position that the payload getters never reach.
+        "installAddressReads(clazz, flavor.label, TENCENT_ADDRESS)": 1,
+        "installAddressReads(clazz, \"tencent\", TENCENT_ADDRESS)": 0,
+        "private class TencentFlavor(": 1,
+        '"com.tencent.map.geolocation.sapp.TencentLocationManager"': 1,
+        '"com.tencent.map.geolocation.sapp.TencentLocationListener"': 1,
+        "private fun installTencentFlavor(loader: ClassLoader, flavor: TencentFlavor) {": 1,
+        # The listener is recognised by method shape, not by type name: a
+        # repackaged interface must not be able to switch the subscription path
+        # off. The type lookup above is a diagnostic only.
+        "private fun isTencentListener(value: Any): Boolean =": 1,
+        # One pass per listener *class*: a check-in screen re-subscribes on every
+        # refresh, and re-wrapping the same `Method` would grow the hook chain
+        # without bound inside someone else's process.
+        "private val tencentListeners: MutableSet<Class<*>> =": 1,
+        "private fun armTencentPayloadClass(clazz: Class<*>, flavor: TencentFlavor) {": 1,
+        "private fun installTencentPoiReads(clazz: Class<*>, flavor: TencentFlavor) {": 1,
+        "private fun armTencentPoi(clazz: Class<*>, flavor: TencentFlavor) {": 1,
         "private fun installAmap(loader: ClassLoader) {": 1,
         "private fun installBaidu(loader: ClassLoader) {": 1,
         "private fun installTencent(loader: ClassLoader) {": 1,
@@ -635,16 +684,20 @@ EXPECTED = {
         # v1.7.1 — the signing secret became a setting, because a key with
         # 签名校验 on answers `111` to every request and v1.7.0 had nowhere to
         # put the secret that would have satisfied it.
-        # v1.10.0 — the in-app target list is gone; the module acts on every
-        # process LSPosed injected it into. Numbered past the published 1.8.0 /
-        # 1.9.0 on purpose, so the version string sorts with the code and the
-        # versionCode still upgrades over 1.9.0's 19.
+        # v1.10.0 — two changes in one release: the in-app target list is gone
+        # (the module acts on every process LSPosed injected it into), and PR #1's
+        # `sapp` Tencent channel for 企业微信 check-in is in. Numbered past the
+        # published 1.8.0 / 1.9.0 on purpose, so the version string sorts with the
+        # code and the versionCode still upgrades over 1.9.0's 19.
         "versionCode = 20": 1,
         'versionName = "1.10.0"': 1,
         "versionCode = 19": 0,
         'versionName = "1.9.0"': 0,
+        # PR #1 shipped this as 1.7.2 / 18; it is folded into 1.10.0 instead, so
+        # the old numbers must not survive anywhere in the tree.
         "versionCode = 18": 0,
         'versionName = "1.8.0"': 0,
+        'versionName = "1.7.2"': 0,
         "versionCode = 17": 0,
         'versionName = "1.7.1"': 0,
         "versionCode = 16": 0,
