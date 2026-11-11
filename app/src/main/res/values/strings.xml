@@ -64,16 +64,10 @@
     <string name="preset_chengdu">Chengdu</string>
     <string name="preset_xian">Xi\'an</string>
 
-    <!-- Target apps -->
+    <!-- Target apps: the scope is fixed, so this card only explains it. -->
     <string name="section_targets">Target apps</string>
-    <string name="targets_scope_all">Every app in LSPosed scope</string>
-    <string name="targets_scope_all_desc">Off: only the apps picked below are spoofed. On: every process in scope is spoofed.</string>
-    <string name="targets_selected_count">%1$d app(s) selected</string>
-    <string name="targets_also_pick_in_lsposed">Remember to add the same apps to the module scope in LSPosed — this list only decides who gets the fake fix.</string>
-    <string name="action_pick_targets">Choose apps</string>
-    <string name="targets_title">Choose target apps</string>
-    <string name="targets_search_hint">Search by name or package</string>
-    <string name="targets_empty">No installed app matches</string>
+    <string name="targets_fixed_title">Every app in LSPosed scope</string>
+    <string name="targets_fixed_desc">Always on, nothing to configure. FakeLoc rewrites every app you have ticked for this module in LSPosed — that list is managed there, not here.</string>
     <string name="action_done">Done</string>
 
     <!-- Advanced -->

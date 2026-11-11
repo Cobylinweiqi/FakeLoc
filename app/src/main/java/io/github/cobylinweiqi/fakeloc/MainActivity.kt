@@ -34,7 +34,6 @@ import io.github.cobylinweiqi.fakeloc.ui.HomeScreen
 import io.github.cobylinweiqi.fakeloc.ui.MainViewModel
 import io.github.cobylinweiqi.fakeloc.ui.MapPickerScreen
 import io.github.cobylinweiqi.fakeloc.ui.SettingsScreen
-import io.github.cobylinweiqi.fakeloc.ui.TargetAppsScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -49,8 +48,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** The four destinations. A nav graph would be pure overhead: no deep links. */
-private enum class Screen { HOME, MAP, TARGETS, SETTINGS }
+/** The three destinations. A nav graph would be pure overhead: no deep links. */
+private enum class Screen { HOME, MAP, SETTINGS }
 
 /**
  * Shell around the three screens.
@@ -67,10 +66,12 @@ private enum class Screen { HOME, MAP, TARGETS, SETTINGS }
 private fun FakeLocApp(viewModel: MainViewModel = viewModel()) {
     val config by viewModel.config.collectAsState()
     val serviceBound by viewModel.serviceBound.collectAsState()
-    val targetApps by viewModel.targetApps.collectAsState()
 
     var screenName by rememberSaveable { mutableStateOf(Screen.HOME.name) }
-    val screen = Screen.valueOf(screenName)
+    // A restored bundle can name a screen this build no longer has — the target
+    // picker was one until the scope moved entirely into LSPosed. Falling back
+    // beats throwing `IllegalArgumentException` during composition.
+    val screen = runCatching { Screen.valueOf(screenName) }.getOrDefault(Screen.HOME)
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -86,12 +87,6 @@ private fun FakeLocApp(viewModel: MainViewModel = viewModel()) {
     // which can happen after the first frame — pull the real config in then.
     LaunchedEffect(serviceBound) {
         if (serviceBound) viewModel.reload()
-    }
-
-    // The target list is only needed when the picker opens; loading it up front
-    // would stall startup on a device with a lot of packages.
-    LaunchedEffect(screenName) {
-        if (screen == Screen.TARGETS) viewModel.loadTargetApps()
     }
 
     // System back leaves any sub-screen; on home it falls through so the app can
@@ -128,13 +123,6 @@ private fun FakeLocApp(viewModel: MainViewModel = viewModel()) {
                     onBack = { screenName = Screen.HOME.name },
                 )
 
-                Screen.TARGETS -> TargetAppsScreen(
-                    apps = targetApps,
-                    selected = config.targetPackages,
-                    onToggle = viewModel::toggleTargetApp,
-                    onBack = { screenName = Screen.HOME.name },
-                )
-
                 Screen.SETTINGS -> SettingsScreen(
                     config = config,
                     onUpdate = viewModel::update,
@@ -160,7 +148,6 @@ private fun FakeLocApp(viewModel: MainViewModel = viewModel()) {
                             )
                         },
                         onPaste = viewModel::applyClipboard,
-                        onOpenTargets = { screenName = Screen.TARGETS.name },
                         onOpenMap = { screenName = Screen.MAP.name },
                         onOpenSettings = { screenName = Screen.SETTINGS.name },
                         onSaveCoordinates = viewModel::commitCoordinates,

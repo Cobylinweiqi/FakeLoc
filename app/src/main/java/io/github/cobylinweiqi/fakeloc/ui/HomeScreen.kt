@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Map
@@ -76,7 +75,6 @@ fun HomeScreen(
     onTogglePlaying: () -> Unit,
     onUseRealGps: () -> Unit,
     onPaste: (String?) -> Unit,
-    onOpenTargets: () -> Unit,
     onOpenMap: () -> Unit,
     onOpenSettings: () -> Unit,
     onSaveCoordinates: (String, String) -> Unit,
@@ -143,11 +141,7 @@ fun HomeScreen(
             onPick = { latitude, longitude -> onUpdate { it.moveTo(latitude, longitude) } },
         )
 
-        TargetsCard(
-            config = config,
-            onUpdate = onUpdate,
-            onOpenTargets = onOpenTargets,
-        )
+        TargetsCard()
 
         Spacer(Modifier.height(4.dp))
         PrimaryActionButton(playing = config.playing, onClick = onTogglePlaying)
@@ -527,48 +521,28 @@ private fun PresetsCard(current: SpoofConfig, onPick: (Double, Double) -> Unit) 
 }
 
 // --------------------------------------------------------------- targets
+//
+// Read-only on purpose. The scope used to be a second, narrower list chosen in
+// this app, which only ever intersected with LSPosed's own scope — and an empty
+// or switched-off list looked exactly like a module that does not work. One
+// list, in LSPosed, is the whole answer; this card just says so.
 
 @Composable
-private fun TargetsCard(
-    config: SpoofConfig,
-    onUpdate: ((SpoofConfig) -> SpoofConfig) -> Unit,
-    onOpenTargets: () -> Unit,
-) {
+private fun TargetsCard() {
     FakeLocCard {
         SectionLabel(stringResource(R.string.section_targets))
-        Spacer(Modifier.height(6.dp))
-
-        ToggleRow(
-            title = stringResource(R.string.targets_scope_all),
-            subtitle = stringResource(R.string.targets_scope_all_desc),
-            checked = config.scopeAll,
-            onCheckedChange = { enabled -> onUpdate { it.copy(scopeAll = enabled) } },
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.targets_fixed_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
-
-        if (!config.scopeAll) {
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(
-                        R.string.targets_selected_count,
-                        config.targetPackages.size,
-                    ),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(onClick = onOpenTargets) {
-                    Icon(Icons.Rounded.Apps, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.action_pick_targets))
-                }
-            }
-            Text(
-                text = stringResource(R.string.targets_also_pick_in_lsposed),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.targets_fixed_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

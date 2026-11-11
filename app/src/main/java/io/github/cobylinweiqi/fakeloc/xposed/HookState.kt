@@ -56,19 +56,6 @@ internal object HookState {
     @Volatile
     private var processPackage: String? = null
 
-    /**
-     * [processPackage] with its `:suffix` stripped, or `null` when there is none.
-     *
-     * The framework announces a *process*, so a subprocess arrives as
-     * `com.example.app:remote` — while a target-list entry names the package.
-     * Compared directly, the two never match, so every subprocess of a targeted
-     * app was judged out of scope and spoofed nothing, with the module loaded and
-     * every hook armed. Stripped once here rather than per call: [applies] runs on
-     * every intercepted location read.
-     */
-    @Volatile
-    private var basePackage: String? = null
-
     private val driftEngine = Geo.DriftEngine()
 
     private val changeListener =
@@ -83,11 +70,6 @@ internal object HookState {
     @Synchronized
     fun init(sharedPreferences: SharedPreferences, packageName: String?) {
         processPackage = packageName
-        basePackage = packageName?.let { name ->
-            val colon = name.indexOf(':')
-            // A subprocess is `pkg:tag`; a target-list entry names the package.
-            if (colon > 0) name.substring(0, colon) else null
-        }
         preferences = sharedPreferences
         runCatching {
             sharedPreferences.registerOnSharedPreferenceChangeListener(changeListener)
@@ -96,7 +78,7 @@ internal object HookState {
         HookKit.info(TAG, "state ready for $packageName")
         HookKit.info(TAG, selfCheck())
         if (!applies(current)) {
-            HookKit.warn(TAG, "this process is NOT in the target list — nothing will be spoofed here")
+            HookKit.warn(TAG, "spoofing is off in the app — this process will report its real position")
         }
     }
 
@@ -111,7 +93,7 @@ internal object HookState {
      *
      * Written at startup because those values are invisible everywhere else: a
      * map-SDK channel can arm perfectly and still rewrite nothing, because
-     * `mapSdkCompat` is off or this package is not in the target list — and in the
+     * `mapSdkCompat` is off or the app's own start/stop switch is — and in the
      * log that is indistinguishable from a channel that never armed at all. This
      * line is what separates "the hook is not installed" from "the hook is
      * installed but not allowed to fire".
@@ -126,9 +108,7 @@ internal object HookState {
         append(" mapSdkCompat=").append(cfg.mapSdkCompat)
         append(" strictSources=").append(cfg.strictSources)
         append(" antiMock=").append(cfg.antiMock)
-        append(" scopeAll=").append(cfg.scopeAll)
         append(" syncAddress=").append(cfg.syncAddress)
-        append(" targets=").append(cfg.targetPackages.size)
         append(" anchor=")
         append(String.format(Locale.US, "%.6f,%.6f", cfg.latitude, cfg.longitude))
         // Worth a column of its own. The address the SDK getters answer with is
@@ -149,19 +129,14 @@ internal object HookState {
     }
 
     /**
-     * Whether this process is one the module should act on.
+     * Whether this process should be spoofed right now.
      *
-     * Two lookups rather than one, because a target-list entry names a *package*
-     * while the framework announces *processes*: an entry for `com.example.app`
-     * has to cover `com.example.app:remote` too. The suffix is stripped once, at
-     * [init], which keeps this allocation-free on a path an app can hit hundreds
-     * of times a second.
+     * Being asked at all already means LSPosed's scope put the module in this
+     * process, so "in scope" needs no lookup of its own; what is left is the
+     * app's start/stop switch. Kept as a field read because this runs on every
+     * intercepted location access an app can make.
      */
-    private fun applies(cfg: SpoofConfig): Boolean {
-        if (cfg.appliesTo(processPackage)) return true
-        val base = basePackage ?: return false
-        return cfg.appliesTo(base)
-    }
+    private fun applies(cfg: SpoofConfig): Boolean = cfg.spoofs()
 
     /** `true` when this process should receive a fake fix right now. */
     fun active(): Boolean = applies(config())
@@ -176,8 +151,8 @@ internal object HookState {
      * Deliberately *not* tied to `antiMock`: hiding mock traces and preventing an
      * app from computing a real fix are different jobs, and the second one is what
      * stops a map app from drifting off the injected position a few seconds in.
-     * What it is tied to is [SpoofConfig.appliesTo], so only a process that is
-     * being spoofed loses those inputs — the rest of the device keeps working.
+     * What it is tied to is [applies], so only a process that is being spoofed
+     * loses those inputs — the rest of the device keeps working.
      */
     fun sourceLockEngaged(): Boolean {
         val cfg = config()

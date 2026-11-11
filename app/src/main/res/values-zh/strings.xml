@@ -64,16 +64,10 @@
     <string name="preset_chengdu">成都</string>
     <string name="preset_xian">西安</string>
 
-    <!-- 目标应用 -->
+    <!-- 目标应用：生效范围已固定，此卡片只做说明 -->
     <string name="section_targets">生效范围</string>
-    <string name="targets_scope_all">LSPosed 作用域内全部应用</string>
-    <string name="targets_scope_all_desc">关闭：只有下方勾选的应用被改写。开启：作用域内所有进程都被改写。</string>
-    <string name="targets_selected_count">已选 %1$d 个应用</string>
-    <string name="targets_also_pick_in_lsposed">别忘了在 LSPosed 里把这些应用也加进模块作用域 —— 这里的名单只决定「谁收到假定位」。</string>
-    <string name="action_pick_targets">选择应用</string>
-    <string name="targets_title">选择目标应用</string>
-    <string name="targets_search_hint">按名称或包名搜索</string>
-    <string name="targets_empty">没有匹配的已安装应用</string>
+    <string name="targets_fixed_title">LSPosed 作用域内全部应用</string>
+    <string name="targets_fixed_desc">固定生效，无需也无法设置。凡是在 LSPosed 里给本模块勾选的应用，一律改写定位 —— 名单只在 LSPosed 中管理。</string>
     <string name="action_done">完成</string>
 
     <!-- 高级参数 -->

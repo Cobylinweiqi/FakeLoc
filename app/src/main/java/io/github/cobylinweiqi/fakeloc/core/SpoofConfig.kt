@@ -178,36 +178,25 @@ data class SpoofConfig(
      * keeps the request unsigned, exactly as before.
      */
     val mapSkTencent: String = "",
-
-    /**
-     * When true, *every* process in the LSPosed scope is spoofed and
-     * [targetPackages] is ignored. Useful when you would rather curate the
-     * scope in LSPosed itself.
-     */
-    val scopeAll: Boolean = false,
-
-    /** Package names that receive the fake fix when [scopeAll] is false. */
-    val targetPackages: Set<String> = emptySet(),
 ) {
     /** `true` when latitude/longitude are inside WGS-84 bounds. */
     val coordinatesValid: Boolean
         get() = latitude in -90.0..90.0 && longitude in -180.0..180.0
 
     /**
-     * Whether the process identified by [packageName] should be spoofed right
-     * now. The hook side calls this on every intercepted location read, so it
-     * must stay allocation-free and cheap — it does.
+     * Whether this configuration should rewrite anything at all.
      *
-     * The comparison is against whole process names, exactly as the framework
-     * reports them: `com.example.app:remote` is not
-     * `com.example.app`. Widening a subprocess to its parent would need a
-     * substring per call, so that lives in `HookState`, once per process.
+     * The per-process filter that used to live here (an in-app target list plus
+     * an "every app in scope" switch) is gone on purpose. It could only ever
+     * *narrow* what LSPosed had already injected into, so the effective scope was
+     * an AND of two lists kept in two different places — and the natural
+     * mistakes at that seam (a list never filled in, the switch left off) made
+     * the module look broken while LSPosed's own scope said it was installed.
+     * There is exactly one list now, and it is LSPosed's: *loaded into this
+     * process* equals *in scope*. That leaves [playing], which every channel
+     * already had to check anyway.
      */
-    fun appliesTo(packageName: String?): Boolean {
-        if (!playing) return false
-        if (scopeAll) return true
-        return packageName != null && targetPackages.contains(packageName)
-    }
+    fun spoofs(): Boolean = playing
 
     /**
      * What a given SDK address getter should answer, or `null` to leave it be.

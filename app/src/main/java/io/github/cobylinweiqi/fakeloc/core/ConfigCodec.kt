@@ -1,6 +1,5 @@
 package io.github.cobylinweiqi.fakeloc.core
 
-import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -50,8 +49,12 @@ object ConfigCodec {
     private const val K_MAP_AK_AMAP = "map_ak_amap"
     private const val K_MAP_AK_TENCENT = "map_ak_tencent"
     private const val K_MAP_SK_TENCENT = "map_sk_tencent"
-    private const val K_SCOPE_ALL = "scope_all"
-    private const val K_TARGETS = "targets"
+    // `scope_all` and `targets` are no longer written: the effective scope is
+    // whatever LSPosed injected the module into, so there is nothing left for
+    // the app to store. A blob from an older build still carries both keys and
+    // they are simply ignored — an empty target list in particular must NOT be
+    // read as "spoof nothing", which is the exact failure that made the switch
+    // a trap in the first place.
 
     fun encode(config: SpoofConfig): String = JSONObject().apply {
         put(K_VERSION, VERSION)
@@ -84,8 +87,6 @@ object ConfigCodec {
         put(K_MAP_AK_AMAP, config.mapAkAmap)
         put(K_MAP_AK_TENCENT, config.mapAkTencent)
         put(K_MAP_SK_TENCENT, config.mapSkTencent)
-        put(K_SCOPE_ALL, config.scopeAll)
-        put(K_TARGETS, JSONArray(config.targetPackages.sorted()))
     }.toString()
 
     /**
@@ -138,8 +139,6 @@ object ConfigCodec {
             mapAkAmap = decodeText(json, K_MAP_AK_AMAP, defaults.mapAkAmap),
             mapAkTencent = decodeText(json, K_MAP_AK_TENCENT, defaults.mapAkTencent),
             mapSkTencent = decodeText(json, K_MAP_SK_TENCENT, defaults.mapSkTencent),
-            scopeAll = json.optBoolean(K_SCOPE_ALL, defaults.scopeAll),
-            targetPackages = decodeTargets(json.optJSONArray(K_TARGETS)),
         )
     }
 
@@ -162,14 +161,4 @@ object ConfigCodec {
 
     /** Upper bound on any single stored text field. */
     private const val MAX_TEXT = 120
-
-    private fun decodeTargets(array: JSONArray?): Set<String> {
-        if (array == null) return emptySet()
-        val out = LinkedHashSet<String>(array.length())
-        for (i in 0 until array.length()) {
-            val pkg = array.optString(i, "")
-            if (pkg.isNotBlank()) out.add(pkg)
-        }
-        return out
-    }
 }

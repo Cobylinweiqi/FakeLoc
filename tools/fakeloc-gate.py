@@ -46,6 +46,11 @@ RES = "app/src/main/res/"
 DELETED_FILES = [
     JAVA + "ui/map/BaiduCanvas.kt",
     JAVA + "ui/map/AmapCanvas.kt",
+    # The in-app target picker and the package enumerator behind it. The scope is
+    # now LSPosed's alone, and these two were the second list that could disagree
+    # with it — an empty one looked exactly like a module that does not work.
+    JAVA + "ui/TargetAppsScreen.kt",
+    JAVA + "data/InstalledApps.kt",
 ]
 
 
@@ -246,7 +251,14 @@ EXPECTED = {
         "fun addressFor(getter: String): String?": 1,
         "val addrProvince: String = \"\",": 1,
         "val blankAddress": 0,
-        "fun appliesTo(packageName: String?): Boolean": 1,
+        # The per-process filter is gone: LSPosed's scope is the only list, so
+        # "loaded into this process" already means "in scope". Both halves of the
+        # old pair are asserted dead — a scope-all switch left behind would
+        # silently re-narrow the module the day someone flipped it off.
+        "fun appliesTo(packageName: String?): Boolean": 0,
+        "val scopeAll": 0,
+        "targetPackages": 0,
+        "fun spoofs(): Boolean = playing": 1,
         # v1.4.0: the map-picker provider choice and the user's own keys.
         # v1.5.0: the provider field survives even though one entry remains — it
         # is part of the persisted blob, and dropping it would make re-adding a
@@ -303,6 +315,12 @@ EXPECTED = {
         # v1.7.1: the signing secret has to be declared, written and read back,
         # like every other field this blob carries.
         'private const val K_MAP_SK_TENCENT = "map_sk_tencent"': 1,
+        # v1.7.2: the scope keys are neither written nor read. Old blobs still
+        # carry them; reading `targets` back is exactly what would resurrect the
+        # empty-list-means-nothing-spoofed trap.
+        'private const val K_SCOPE_ALL = "scope_all"': 0,
+        'private const val K_TARGETS = "targets"': 0,
+        "decodeTargets(": 0,
         "put(K_MAP_PROVIDER, config.mapProviderId)": 1,
         "put(K_MAP_CREDENTIAL, config.mapCredentialId)": 0,
         "put(K_MAP_AK_BAIDU, config.mapAkBaidu)": 1,
@@ -327,6 +345,10 @@ EXPECTED = {
     },
     JAVA + "MainActivity.kt": {
         "viewModel.applyMapPick(latitude, longitude, address)": 1,
+        # v1.7.2: three screens — the picker left with the in-app target list.
+        # A restored Bundle can still name it, so the lookup has to be tolerant.
+        "private enum class Screen { HOME, MAP, SETTINGS }": 1,
+        "runCatching { Screen.valueOf(screenName) }": 1,
     },
     JAVA + "ui/MapPickerScreen.kt": {
         "onPicked: (Double, Double, PickedAddress) -> Unit": 1,
@@ -512,10 +534,15 @@ EXPECTED = {
         "val signalScroll = rememberScrollState()": 1,
     },
     JAVA + "xposed/HookState.kt": {
-        "private var basePackage: String? = null": 1,
-        "private fun applies(cfg: SpoofConfig): Boolean {": 1,
+        # The `:suffix` stripping left with the target list it existed for: a
+        # subprocess and its package can no longer disagree about being in scope.
+        "private var basePackage: String? = null": 0,
+        "private fun applies(cfg: SpoofConfig): Boolean = cfg.spoofs()": 1,
         "fun active(): Boolean = applies(config())": 1,
         "append(\"inScope=\").append(applies(cfg))": 1,
+        # The two columns that described the removed switch and list.
+        "append(\" scopeAll=\")": 0,
+        "append(\" targets=\")": 0,
         "return cfg.strictSources && applies(cfg)": 1,
         "return cfg.mapSdkCompat && applies(cfg)": 1,
         "if (!applies(current)) {": 1,
@@ -556,14 +583,20 @@ EXPECTED = {
         "R.string.addr_unresolved": 1,
         "WrongLocation": 0,
         "adv_blank_address": 0,
-        # v1.6.0: the tuning card left for the settings page. `ToggleRow(` at 1 is
-        # the scope-all switch that stayed, and `adv_` at 3 is the summary chips on
-        # the status card — the numbers that prove the *controls* left while the
-        # read-only summary did not.
+        # v1.6.0: the tuning card left for the settings page. v1.7.2: the
+        # scope-all switch followed the target list out, so no ToggleRow is left
+        # on this screen at all; `adv_` at 3 is the summary chips on the status
+        # card — the numbers that prove the *controls* left while the read-only
+        # summary did not.
         "SignalTuningCard": 0,
         "SliderRow(": 0,
-        "ToggleRow(": 1,
+        "ToggleRow(": 0,
         "R.string.adv_": 3,
+        # What replaced the switch: a fixed sentence, plus no route to a picker.
+        "private fun TargetsCard(": 1,
+        "R.string.targets_fixed_desc": 1,
+        "onOpenTargets": 0,
+        "rounded.Apps": 0,
     },
     "app/src/main/AndroidManifest.xml": {
         # v1.4.1: the SDK gets its key from `setApiKey`, not from a meta-data
@@ -602,8 +635,18 @@ EXPECTED = {
         # v1.7.1 — the signing secret became a setting, because a key with
         # 签名校验 on answers `111` to every request and v1.7.0 had nowhere to
         # put the secret that would have satisfied it.
-        "versionCode = 17": 1,
-        'versionName = "1.7.1"': 1,
+        # v1.10.0 — the in-app target list is gone; the module acts on every
+        # process LSPosed injected it into. Numbered past the published 1.8.0 /
+        # 1.9.0 on purpose, so the version string sorts with the code and the
+        # versionCode still upgrades over 1.9.0's 19.
+        "versionCode = 20": 1,
+        'versionName = "1.10.0"': 1,
+        "versionCode = 19": 0,
+        'versionName = "1.9.0"': 0,
+        "versionCode = 18": 0,
+        'versionName = "1.8.0"': 0,
+        "versionCode = 17": 0,
+        'versionName = "1.7.1"': 0,
         "versionCode = 16": 0,
         'versionName = "1.7.0"': 0,
         "versionCode = 15": 0,
@@ -749,7 +792,9 @@ missing_named = [
                     # v1.6.0: the two tab captions and the tuning intro. The tuning
                     # tab deliberately reuses section_advanced, so that key is
                     # asserted here too — it is now load-bearing in two places.
-                    "settings_tab_map", "settings_signal_desc", "section_advanced")
+                    # v1.7.2: the sentence that replaced the scope switch.
+                    "settings_tab_map", "settings_signal_desc", "section_advanced",
+                    "targets_fixed_title", "targets_fixed_desc")
     if key not in en or key not in zh
 ]
 print("named strings missing: %s" % (missing_named or "none"))
@@ -765,7 +810,13 @@ dead_strings = [
                     "provider_baidu", "provider_amap",
                     "settings_key_baidu", "settings_key_amap",
                     "steps_baidu_title", "steps_baidu_body",
-                    "steps_amap_title", "steps_amap_body")
+                    "steps_amap_title", "steps_amap_body",
+                    # v1.7.2: the target picker's copy went with the picker. A
+                    # leftover "Choose apps" button would still render — and lie.
+                    "targets_scope_all", "targets_scope_all_desc",
+                    "targets_selected_count", "targets_also_pick_in_lsposed",
+                    "action_pick_targets", "targets_title",
+                    "targets_search_hint", "targets_empty")
     if key in en or key in zh
 ]
 print("strings that should be gone: %s" % (dead_strings or "none"))

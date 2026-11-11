@@ -17,8 +17,6 @@ import io.github.cobylinweiqi.fakeloc.core.PickedAddress
 import io.github.cobylinweiqi.fakeloc.core.SpoofConfig
 import io.github.cobylinweiqi.fakeloc.core.moveTo
 import io.github.cobylinweiqi.fakeloc.core.withAnchor
-import io.github.cobylinweiqi.fakeloc.data.AppEntry
-import io.github.cobylinweiqi.fakeloc.data.InstalledApps
 import io.github.cobylinweiqi.fakeloc.data.RemoteStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -54,9 +52,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val serviceBound: StateFlow<Boolean> = App.services
         .map { it != null }
         .stateIn(viewModelScope, SharingStarted.Eagerly, store.serviceAvailable)
-
-    private val _targetApps = MutableStateFlow<List<AppEntry>>(emptyList())
-    val targetApps: StateFlow<List<AppEntry>> = _targetApps.asStateFlow()
 
     private var lastLocationRequestMs = 0L
 
@@ -226,25 +221,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }.onFailure {
             _messages.tryEmit(R.string.toast_location_failed)
-        }
-    }
-
-    // ------------------------------------------------------- target apps
-
-    fun loadTargetApps() {
-        viewModelScope.launch {
-            _targetApps.value = InstalledApps.load(
-                getApplication(),
-                keepPackages = _config.value.targetPackages,
-            )
-        }
-    }
-
-    fun toggleTargetApp(packageName: String) {
-        update { config ->
-            val next = config.targetPackages.toMutableSet()
-            if (!next.remove(packageName)) next.add(packageName)
-            config.copy(targetPackages = next)
         }
     }
 
