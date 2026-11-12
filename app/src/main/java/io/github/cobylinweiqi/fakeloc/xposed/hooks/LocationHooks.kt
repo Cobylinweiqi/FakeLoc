@@ -216,7 +216,7 @@ internal object LocationHooks {
      * | `indoor` | indoor-positioning vendor extensions |
      *
      * The list is a *keep* list on purpose. A test provider is registered under
-     * whatever name the mock app chooses — `BlinkLoc`, `test`, the joystick's own
+     * whatever name the mock app chooses — `FakeLoc`, `test`, the joystick's own
      * package name — so `LocationManager.getProviders(true)` is the one place an
      * app can see, by name alone, that a mock app is installed and selected. That
      * is a mock marker like any other, and it is the only marker that survives

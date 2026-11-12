@@ -38,7 +38,7 @@ class App : Application(), XposedServiceHelper.OnServiceListener {
     }
 
     companion object {
-        private const val TAG = "BlinkLoc"
+        private const val TAG = "FakeLoc"
 
         private val serviceState = MutableStateFlow<XposedService?>(null)
 

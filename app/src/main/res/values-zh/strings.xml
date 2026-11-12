@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">飞雷神</string>
+    <string name="app_name">FakeLoc</string>
     <string name="module_description">LSPosed 虚拟定位 —— 无需开启「模拟位置」即可改写 GPS</string>
 
     <!-- 模块 / 服务状态 -->
@@ -12,7 +12,7 @@
     <string name="module_help_title">模块为什么没激活？</string>
     <string name="module_help_body">FakeLoc 的配置通过 LSPosed 的绑定服务读写。下面三种情况都会让它不生效：\n\n1. LSPosed 里没有启用本模块。\n2. 启用了，但本应用是在那之前打开的 —— 请强行停止本应用，再重新打开。\n3. 目标应用不在作用域内，或者它在 Magisk 的 DenyList 里。DenyList 会阻止任何模块注入该应用，本模块也不例外。\n\n改完作用域后，目标应用必须重新启动 —— 策略变更对已经在跑的进程无效。</string>
     <string name="service_unbound_title">未连接到 LSPosed 服务</string>
-    <string name="service_unbound_desc">请在 LSPosed 中启用飞雷神，然后强行停止本应用并重新打开。模块与 LSPosed 之间通过绑定服务通信。</string>
+    <string name="service_unbound_desc">请在 LSPosed 中启用FakeLoc，然后强行停止本应用并重新打开。模块与 LSPosed 之间通过绑定服务通信。</string>
 
     <!-- 运行状态 -->
     <string name="state_running">虚拟定位中</string>

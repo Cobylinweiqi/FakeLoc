@@ -23,7 +23,7 @@ import java.util.Collections
  */
 internal object HookKit {
 
-    private const val ROOT_TAG = "BlinkLoc"
+    private const val ROOT_TAG = "FakeLoc"
 
     @Volatile
     private var moduleRef: XposedInterface? = null
@@ -58,7 +58,7 @@ internal object HookKit {
         val logger = moduleRef
         if (logger != null) {
             // LSPosed's own log — readable from the manager app, shows up as
-            // "BlinkLoc/SubTag".
+            // "FakeLoc/SubTag".
             runCatching { logger.log(priority, "$ROOT_TAG/$tag", message) }
         } else {
             runCatching { Log.println(priority, "$ROOT_TAG/$tag", message) }

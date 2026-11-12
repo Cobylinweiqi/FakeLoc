@@ -1,4 +1,4 @@
-# BlinkLoc — R8 / ProGuard rules
+# FakeLoc — R8 / ProGuard rules
 #
 # `isMinifyEnabled` is **true** for release as of v1.5.0. See the note in
 # app/build.gradle.kts for why it was off before and what changed; the short

@@ -32,5 +32,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "BlinkLoc"
+rootProject.name = "FakeLoc"
 include(":app")

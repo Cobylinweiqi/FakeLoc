@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BlinkLoc static gate.
+"""FakeLoc static gate.
 
 Four mechanisms, each of which has caught a real defect in this repo:
 
@@ -557,7 +557,7 @@ EXPECTED = {
         # The two rejection paths, asserted on the call: the whole point is that
         # these lines exist at all. Both used to `resume(null)` without a word.
         "Log.w(": 2,
-        "private const val LOOKUP_TAG = \"BlinkLoc/MapLookup\"": 1,
+        "private const val LOOKUP_TAG = \"FakeLoc/MapLookup\"": 1,
         "adCode = firstNonBlank(info?.adcode)": 1,
         "street = firstNonBlank(component?.street)": 1,
         # `city_code` here is the administrative division code, *not* what
@@ -1153,14 +1153,15 @@ EXPECTED = {
     #     debug key at all, so that assertion is dropped rather than pinned to 0;
     #   * the repository URL — a stale one looks like a working link.
     "README.md": {
-        # 2 as of 2026-11-10: the v1.8.0 rename note repeats it to make the point
-        # that the display name changed but the package name did not.
-        "io.github.cobylinweiqi.fakeloc": 2,
+        # 1 as of 2026-11-12: the v1.8.0 rename note was removed when the
+        # display name went back to FakeLoc, leaving the package-name line in
+        # the install section as the only occurrence.
+        "io.github.cobylinweiqi.fakeloc": 1,
         "com.amo.fakeloc": 1,
         "28a3a1d6f8a0d9b00af1a33a70586cc0c20a04b0": 1,
         # 2 as of 2026-09-30, up from 1: the closing line that invites a star
         # links the repository as well. Both links have to keep pointing here.
-        "github.com/Cobylinweiqi/BlinkLoc": 2,
+        "github.com/Cobylinweiqi/FakeLoc": 2,
     },
     # Paired with the signing-material scan above: that one catches a key file
     # that is actually there, this one catches the ignore rules that keep one
