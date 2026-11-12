@@ -216,7 +216,7 @@ internal object LocationHooks {
      * | `indoor` | indoor-positioning vendor extensions |
      *
      * The list is a *keep* list on purpose. A test provider is registered under
-     * whatever name the mock app chooses — `FakeLoc`, `test`, the joystick's own
+     * whatever name the mock app chooses — `BlinkLoc`, `test`, the joystick's own
      * package name — so `LocationManager.getProviders(true)` is the one place an
      * app can see, by name alone, that a mock app is installed and selected. That
      * is a mock marker like any other, and it is the only marker that survives
@@ -317,7 +317,9 @@ internal object LocationHooks {
             when (method.name) {
                 "equals" -> return proxy === args?.getOrNull(0)
                 "hashCode" -> return System.identityHashCode(proxy)
-                "toString" -> return "FakeLocProxy($delegate)"
+                // Answer with the delegate's own string: a name of our own would
+                // tell the app that something is wrapped around its consumer.
+                "toString" -> return delegate.toString()
                 "accept" -> LocationPayload.overwriteAll(args?.getOrNull(0), PATH_ONE_SHOT)
             }
             return try {

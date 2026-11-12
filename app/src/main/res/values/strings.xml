@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">FakeLoc</string>
+    <string name="app_name">BlinkLoc</string>
     <string name="module_description">LSPosed virtual location — spoof GPS without enabling mock locations</string>
 
     <!-- Module / service state -->
@@ -13,7 +13,7 @@
     <string name="module_help_title">Why is the module not active?</string>
     <string name="module_help_body">FakeLoc reads and writes its configuration through a service that LSPosed binds. Three things stop it working:\n\n1. The module is not enabled in LSPosed.\n2. It is enabled, but this app was opened before that happened — force-stop this app, then reopen it.\n3. The target app is not in scope, or it sits in Magisk\'s DenyList. DenyList stops every module from loading into an app, this one included.\n\nAfter changing the scope, restart the target app: a policy change does not reach a process that is already running.</string>
     <string name="service_unbound_title">LSPosed service unavailable</string>
-    <string name="service_unbound_desc">Enable FakeLoc in LSPosed, force-stop this app, then reopen it. The module talks to LSPosed over its bound service.</string>
+    <string name="service_unbound_desc">Enable BlinkLoc in LSPosed, force-stop this app, then reopen it. The module talks to LSPosed over its bound service.</string>
 
     <!-- Run state -->
     <string name="state_running">Spoofing</string>

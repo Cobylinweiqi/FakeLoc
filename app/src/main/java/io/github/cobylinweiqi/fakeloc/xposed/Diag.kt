@@ -26,8 +26,8 @@ import kotlin.math.sqrt
  * guessing, each delivery path announces itself once:
  *
  * ```
- * FakeLoc/Diag  path='listener' delivered a fix 0.0 km off the anchor
- * FakeLoc/Diag  path='listener' delivered a fix 12.4 km off the anchor
+ * BlinkLoc/Diag  path='listener' delivered a fix 0.0 km off the anchor
+ * BlinkLoc/Diag  path='listener' delivered a fix 12.4 km off the anchor
  * ```
  *
  * The first line says the path is live and the app is reading what we wrote. The

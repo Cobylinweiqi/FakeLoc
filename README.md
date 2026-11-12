@@ -1,8 +1,12 @@
-# FakeLoc
+# 飞雷神 BlinkLoc
 
 **虚拟定位模块**：选点、粘贴或手输坐标，把假位置作用于你指定的应用。
 
 > ⚠️ **仅供合法用途，风险自负** —— 完整条款见文末[免责声明](#免责声明)。
+
+> **1.8.0 起更名为「飞雷神 / BlinkLoc」**，以前的叫法是 `FakeLoc`。包名
+> `io.github.cobylinweiqi.fakeloc` 为了不打断升级**故意没改**，老用户直接覆盖安装，
+> 设置与已存坐标全部保留。
 
 ## 功能
 
@@ -24,8 +28,9 @@
 
 ### 1. 安装
 
-从 [最新 Release](https://github.com/Cobylinweiqi/FakeLoc/releases/latest) 下载
-`FakeLoc-<版本>-release.apk`，或在 LSPosed 管理器的「在线仓库」里搜 **FakeLoc** 直接装。
+从 [最新 Release](https://github.com/Cobylinweiqi/BlinkLoc/releases/latest) 下载
+`BlinkLoc-<版本>-release.apk`，或在 LSPosed 管理器的「在线仓库」里搜 **飞雷神**（系统语言是
+英文时搜 **BlinkLoc**）直接装。
 
 包名是 `io.github.cobylinweiqi.fakeloc`。APK 用本项目专用密钥签名，**自己编译出来的包签名不同，
 两者不能互相覆盖安装** —— 更新请始终走 Release。更早的 `com.amo.fakeloc` 是另一个 App，
@@ -33,7 +38,7 @@
 
 ### 2. 在 LSPosed 里激活
 
-1. **启用 FakeLoc** 模块
+1. **启用飞雷神** 模块
 2. **配置作用域**（这一步决定它到底管不管用）：
    - 默认的 `android` 与 `com.android.providers.settings` 负责反检测的全局部分，建议保留
    - 再把你想要伪造定位的 App 逐个勾上
@@ -112,14 +117,14 @@ Key 与 SK 填好后，点设置页里的**「测试连通性」**，它会真�
 - **原始 NMEA / GNSS 观测数据**只在系统级作用域开启时才被压制。只勾目标 App 时，
   `addNmeaListener` 之类仍能拿到与假坐标矛盾的真实卫星数据。
 - **Wi-Fi / 基站指纹完全没做** —— 要对抗基于 BSSID 的定位，那部分得自己加。
-- **`system` 作用域下是本机全量伪造**，包括 FakeLoc 自己的「使用真实定位」按钮。
+- **`system` 作用域下是本机全量伪造**，包括飞雷神自己的「使用真实定位」按钮。
 - 功能开关只在运行中的进程生效，**新增作用域内的 App 需要重启目标 App** 一次。
 - **加固包（梆梆 / SecNeo、爱加密这类）的 App，地图通道可能晚一步才装上。** 这种包的真实 dex 由壳在
   `attachBaseContext` 里解密，模块最早能解析类的时刻还看不到 `com.baidu.location.*`。1.10.0 起会在
   App 创建完成后再装一次，并在约 1.5 / 5 / 15 / 45 秒各重试一次；日志里先出现
   `xxx SDK not reachable … will retry`、随后出现 `Baidu channel armed`，就是这条路径在起作用。
   如果只剩前者，说明 SDK 在解壳后的另一个 ClassLoader 里，把该 App 重启一次再看。
-- 选点页**需要联网**（底图瓦片与地址查询都走 HTTPS）。地址查询用你填的那个 Key：**没勾「逆地址解析」，或开了「签名校验」却没填 SK，都会解析不出城市名** —— 页面底部会直接说。失败原因会进 logcat，tag 是 `FakeLoc/MapLookup`，带着腾讯返回的 status。
+- 选点页**需要联网**（底图瓦片与地址查询都走 HTTPS）。地址查询用你填的那个 Key：**没勾「逆地址解析」，或开了「签名校验」却没填 SK，都会解析不出城市名** —— 页面底部会直接说。失败原因会进 logcat，tag 是 `BlinkLoc/MapLookup`，带着腾讯返回的 status。
 
 ## 免责声明
 
@@ -144,4 +149,4 @@ Key 与 SK 填好后，点设置页里的**「测试连通性」**，它会真�
 
 ---
 
-如果这个模块帮到了你，欢迎在 [GitHub 仓库](https://github.com/Cobylinweiqi/FakeLoc) 点个 ⭐ Star。
+如果这个模块帮到了你，欢迎在 [GitHub 仓库](https://github.com/Cobylinweiqi/BlinkLoc) 点个 ⭐ Star。

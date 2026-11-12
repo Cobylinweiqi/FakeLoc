@@ -45,9 +45,9 @@ object ConfigCodec {
     private const val K_ADDR_STREET = "addr_street"
     private const val K_ADDR_ADCODE = "addr_adcode"
     private const val K_ADDR_CITYCODE = "addr_citycode"
-    // Added in 1.7.2 with [SpoofConfig.addrPlaceName]. A blob written before it
+    // Added in 1.9.0 with [SpoofConfig.addrPlaceName]. A blob written before it
     // simply has no key and decodes to the empty string, which the address hooks
-    // read as "leave the name getter alone" — the pre-1.7.2 behaviour, byte for
+    // read as "leave the name getter alone" — the pre-1.9.0 behaviour, byte for
     // byte, so no migration is needed.
     private const val K_ADDR_PLACE = "addr_place"
     private const val K_ADDR_LINE = "addr_line"

@@ -932,7 +932,7 @@ internal object MapSdkHooks {
      * against a package the process does not contain resolves no class, installs
      * no hook and logs no warning, so the app behaves exactly as if this module
      * were not installed. That was the state of the 企业微信 check-in path until
-     * 1.7.2 — the module hooked the public package while the app called the
+     * 1.9.0 — the module hooked the public package while the app called the
      * `sapp` one, so the map sat on the real position whatever was configured.
      * Measured on 2026-10-22 against 企微小打手 1.6.1, whose entire location
      * channel names the `sapp` pair and nothing else.
