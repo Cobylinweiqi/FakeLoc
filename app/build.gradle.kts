@@ -48,13 +48,20 @@ android {
         applicationId = "io.github.cobylinweiqi.fakeloc"
         minSdk = 29
         targetSdk = 35
-        // 1.10.0 — two changes in one release: the scope is now LSPosed's alone,
-        // and PR #1's sapp Tencent channel is in. Numbered 1.10.0 rather than
-        // 1.7.2 because 1.8.0 and 1.9.0 are already published; a "1.7.2" would
-        // sort below them while carrying newer code. versionCode 20 continues
-        // past 1.9.0's 19 so an install over it is still an upgrade.
-        versionCode = 20
-        versionName = "1.10.0"
+        // 1.15.0 — the launcher icon, replaced with the artwork the app finally
+        // has. The adaptive icon is rebuilt as two layers (background colour
+        // field, foreground pin) instead of the old hand-written vector, so the
+        // pin is sized against the 66dp visible circle rather than against the
+        // full 108dp canvas; the layers are lossy WebP, because a photographic
+        // gradient costs 303 KB as PNG and 30 KB as WebP.
+        //
+        // 1.17.0 — the artwork swapped again, to a pixel-art master
+        // (tools/icon-master-pixel.png); make-icons.py re-derives both layers
+        // from it, re-measured against the new composition.
+        //
+        // versionCode 27 continues past 1.16.0's 26.
+        versionCode = 27
+        versionName = "1.17.0"
 
         ndk {
             // **arm64-v8a only.** The bundled engine publishes both ARM variants,

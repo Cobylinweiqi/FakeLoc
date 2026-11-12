@@ -21,3 +21,12 @@ keystore.properties
 
 # WorkBuddy 的工程数据（含逐日开发日志与设备信息），只属于本机，不进公开仓库。
 .workbuddy/
+
+# 图标设计稿（二进制），既不是源码也不是资源，进仓库只会让门禁的文本扫描失败。
+*.miora
+
+# 图标迭代过程中的中间产物：1024 母版按版本堆在仓库根、画布导出的 _assets 目录、
+# 设计工具直接落盘的 processed_image_*。真正要入库的母版只有 tools/icon-master*.{png,jpg}。
+FakeLoc-AppIcon*.png
+FakeLoc-AppIcon*_assets/
+processed_image_*.png

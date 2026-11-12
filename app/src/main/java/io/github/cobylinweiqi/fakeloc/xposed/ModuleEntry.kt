@@ -9,11 +9,13 @@ import io.github.cobylinweiqi.fakeloc.core.Keys
 import io.github.cobylinweiqi.fakeloc.xposed.hooks.AntiMockHooks
 import io.github.cobylinweiqi.fakeloc.xposed.hooks.DynamicLoaderHooks
 import io.github.cobylinweiqi.fakeloc.xposed.hooks.FrameworkLocationHooks
+import io.github.cobylinweiqi.fakeloc.xposed.hooks.LateArmHooks
 import io.github.cobylinweiqi.fakeloc.xposed.hooks.ListenerHooks
 import io.github.cobylinweiqi.fakeloc.xposed.hooks.LocationHooks
 import io.github.cobylinweiqi.fakeloc.xposed.hooks.MapSdkHooks
 import io.github.cobylinweiqi.fakeloc.xposed.hooks.PlayServicesHooks
 import io.github.cobylinweiqi.fakeloc.xposed.hooks.SourceLockHooks
+import io.github.cobylinweiqi.fakeloc.xposed.hooks.WebBridgeHooks
 
 /**
  * Module entry point, named in `META-INF/xposed/java_init.list`.
@@ -26,7 +28,7 @@ import io.github.cobylinweiqi.fakeloc.xposed.hooks.SourceLockHooks
  *
  * | Process | Installed |
  * |---|---|
- * | ordinary app | [LocationHooks], [ListenerHooks], [PlayServicesHooks], [AntiMockHooks], [SourceLockHooks], [MapSdkHooks], [DynamicLoaderHooks] |
+ * | ordinary app | [LocationHooks], [ListenerHooks], [PlayServicesHooks], [AntiMockHooks], [SourceLockHooks], [MapSdkHooks], [WebBridgeHooks], [DynamicLoaderHooks], [LateArmHooks] |
  * | `system` / `android` | [FrameworkLocationHooks] |
  * | `com.android.providers.settings` | [AntiMockHooks] (settings provider only) |
  */
@@ -92,7 +94,16 @@ class ModuleEntry : XposedModule() {
                 // that turns out not to be reachable from this loader, and it
                 // stays silent until one is.
                 MapSdkHooks.install(loader)
+                // Says which door an H5 page used for its position. Cheap, and
+                // the only way to tell "our rewrite was ignored" from "the page
+                // never asked anyone" — see [WebBridgeHooks].
+                WebBridgeHooks.install()
                 DynamicLoaderHooks.install()
+                // Last, and only because the two above are the fast paths: a
+                // hardened package has no map classes to find yet at this point,
+                // so the channels fail here and are retried once the shell has
+                // decrypted its dex. See [LateArmHooks] for the measurement.
+                LateArmHooks.install(loader)
             }
         }
     }

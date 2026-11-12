@@ -5,7 +5,13 @@
 
     <!-- Module / service state -->
     <string name="status_module_active">Module active</string>
+    <!-- "Ready" rather than a second flavour of "not active": a connected module
+         with the switch off is the normal idle state, not a fault. Conflating
+         the two is what made the home screen accuse a healthy install. -->
+    <string name="status_module_ready">Ready</string>
     <string name="status_module_inactive">Module not active</string>
+    <string name="module_help_title">Why is the module not active?</string>
+    <string name="module_help_body">FakeLoc reads and writes its configuration through a service that LSPosed binds. Three things stop it working:\n\n1. The module is not enabled in LSPosed.\n2. It is enabled, but this app was opened before that happened — force-stop this app, then reopen it.\n3. The target app is not in scope, or it sits in Magisk\'s DenyList. DenyList stops every module from loading into an app, this one included.\n\nAfter changing the scope, restart the target app: a policy change does not reach a process that is already running.</string>
     <string name="service_unbound_title">LSPosed service unavailable</string>
     <string name="service_unbound_desc">Enable FakeLoc in LSPosed, force-stop this app, then reopen it. The module talks to LSPosed over its bound service.</string>
 
@@ -13,13 +19,18 @@
     <string name="state_running">Spoofing</string>
     <string name="state_stopped">Idle</string>
     <string name="state_running_sub">Target apps receive the coordinates below</string>
+    <string name="state_ready_sub">Ready — the button below turns it on</string>
     <string name="state_stopped_sub">No location is being altered</string>
+    <!-- Said while the switch may well be off *or* on. With no bound service
+         neither state does anything, and the old screen said "target apps
+         receive the coordinates below" in exactly this situation. -->
+    <string name="state_unbound_sub">Not connected to LSPosed — nothing takes effect yet</string>
 
     <!-- Coordinates -->
     <string name="label_latitude">Latitude</string>
     <string name="label_longitude">Longitude</string>
     <string name="action_use_real_gps">Use real GPS</string>
-    <string name="action_paste">Paste</string>
+    <string name="action_paste">Paste coords</string>
     <string name="action_save">Save</string>
     <string name="action_reset">Reset</string>
     <string name="hint_coord_example">39.908700</string>
@@ -29,6 +40,12 @@
     <string name="toast_location_denied">Location permission denied</string>
     <string name="toast_location_failed">Could not get a fix — try outdoors or retry</string>
     <string name="toast_invalid_coords">Latitude must be −90…90 and longitude −180…180</string>
+    <!-- The editor's own state line. "Saved" is the resting state: what the two
+         boxes show is what is in effect, which is not something the old screen
+         ever confirmed. -->
+    <string name="coord_pending">Unsaved</string>
+    <string name="coord_saved">Saved</string>
+    <string name="coord_invalid_short">Out of range</string>
 
     <!-- Map picker -->
     <string name="section_map">Pick on a map</string>
@@ -53,8 +70,17 @@
     <string name="cd_settings">Settings</string>
     <string name="toast_map_picked">Location picked from the map</string>
 
-    <!-- Presets -->
-    <string name="section_presets">Quick presets</string>
+    <!-- Saved places: recent, pinned and the built-in cities. Every anchor change
+         is recorded automatically; the star is the only manual part. -->
+    <string name="section_presets">Saved places</string>
+    <string name="places_recent">Recent</string>
+    <string name="places_pinned">Pinned</string>
+    <string name="places_cities">Cities</string>
+    <string name="places_recent_empty">Nothing yet — every change of the anchor is recorded here automatically.</string>
+    <string name="places_pinned_empty">Nothing pinned yet — tap the star on a recent place to keep it.</string>
+    <string name="places_pin">Pin</string>
+    <string name="places_unpin">Unpin</string>
+    <string name="toast_place_applied">Switched to the saved place</string>
     <string name="preset_beijing">Beijing</string>
     <string name="preset_shanghai">Shanghai</string>
     <string name="preset_guangzhou">Guangzhou</string>
@@ -67,8 +93,12 @@
     <!-- Target apps: the scope is fixed, so this card only explains it. -->
     <string name="section_targets">Target apps</string>
     <string name="targets_fixed_title">Every app in LSPosed scope</string>
-    <string name="targets_fixed_desc">Always on, nothing to configure. FakeLoc rewrites every app you have ticked for this module in LSPosed — that list is managed there, not here.</string>
+    <string name="targets_fixed_desc">The list lives in LSPosed; this app neither can nor should narrow it.</string>
     <string name="action_done">Done</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_got_it">Got it</string>
+    <string name="action_learn_more">Learn more</string>
 
     <!-- Advanced -->
     <string name="section_advanced">Signal tuning</string>
@@ -82,6 +112,13 @@
     <string name="adv_drift_desc">Wander around the anchor point so the track looks human.</string>
     <string name="adv_drift_radius">Drift radius</string>
     <string name="adv_drift_speed">Drift speed</string>
+    <!-- Each of these switches means something different when it is off, so each
+         gets its own sentence: accuracy and speed return the SDK's own value,
+         altitude returns the real terrain height, drift freezes the track. -->
+    <string name="off_accuracy">Off: no accuracy is sent, so the SDK answers with the value it computed itself.</string>
+    <string name="off_altitude">Off: no altitude is sent, so the SDK answers with the real terrain height of where the phone actually is.</string>
+    <string name="off_speed">Off: no speed is sent, so the SDK derives it from the distance between consecutive fixes.</string>
+    <string name="off_drift">Off: the coordinates are one frozen point, and the track shows no movement at all — which, for an account that usually moves, is the more suspicious of the two.</string>
     <string name="adv_anti_mock">Hide mock traces</string>
     <string name="adv_anti_mock_desc">Neutralises isFromMockProvider/isMock, the mock_location setting and the AppOps check, so detectors see nothing.</string>
     <string name="adv_strict_sources">Lock positioning sources</string>
@@ -90,7 +127,36 @@
     <string name="adv_map_sdk_desc">Hooks the Amap, Baidu and Tencent location SDKs directly — including the instances the app loads on its own. Needed for apps that read their position from a map SDK instead of the system.</string>
     <string name="adv_sync_address">Sync the fake address</string>
     <string name="adv_sync_address_desc">Answers the city, province, district and address getters of the map SDKs with the values resolved for the anchor by the map picker. Apps that display the city name a location SDK reports need this: with the address left real, or left empty, they keep showing where you really are. Turn it off if an app misbehaves.</string>
-    <string name="addr_unresolved">City not resolved — open the map picker and save once</string>
+    <!-- Three things an unresolved address can mean, and they are not
+         interchangeable: a lookup running, a lookup that failed (retry it), and
+         no key at all (retrying would send the same nothing). -->
+    <string name="addr_resolving">Resolving the address…</string>
+    <string name="addr_retry">Address not resolved — tap to retry</string>
+    <string name="addr_no_key">Address not resolved — add a Tencent key in Settings to fill it in automatically</string>
+
+    <!-- Scene presets: accuracy, speed and drift are one set of numbers that
+         have to agree with each other, and an incoherent mixture is itself a
+         fingerprint. -->
+    <string name="section_scene">Scene</string>
+    <string name="scene_walking">Walking</string>
+    <string name="scene_driving">Driving</string>
+    <string name="scene_indoor">Indoors, still</string>
+    <string name="scene_custom">Currently a custom combination — no scene preset matches.</string>
+    <string name="scene_altitude_note">Altitude does not follow the scene: the plausible value depends on the terrain of the city you picked, so any number baked in here would be wrong elsewhere.</string>
+
+    <!-- Values and anti-detection are two cards: one decides what the fix looks
+         like, the other decides what a detector can see. -->
+    <string name="section_shape">Exact values</string>
+    <string name="section_guards">Anti-detection</string>
+    <string name="guards_desc">All four are on by default, and they are the part that keeps a forged position from being spotted. Turning any of them off is a repair step, not a setting.</string>
+    <string name="guard_off_anti_mock">Off: isFromMockProvider / isMock report the truth again, so any app doing a basic check can tell this fix is injected.</string>
+    <string name="guard_off_strict_sources">Off: the app can compute a real position again from WiFi scans and cell towers — which is how a map jumps to the fake point and drifts back seconds later.</string>
+    <string name="guard_off_map_sdk">Off: only the system location is rewritten. An app that reads its fix from the Amap / Baidu / Tencent SDK still gets real coordinates, while this page keeps showing the fake ones.</string>
+    <string name="guard_off_sync_address">Off: province, city, district and address come from the real fix again — the map is already at the fake point while the header names your real city.</string>
+    <string name="guard_confirm_title">Turn off “%1$s”?</string>
+    <string name="guard_confirm_map_sdk">The module will only rewrite the system location from now on. Every app that reads its position from a map SDK — banking, check-in and delivery apps carry one — gets your real coordinates, while the home screen here keeps showing the fake ones. It looks like the module stopped working; it did.</string>
+    <string name="guard_confirm_sync_address">Coordinates stay fake, but province, city, district and address revert to the real ones. An app that prints the city name a location SDK reports ends up half converted — a fake map with a real city in the header, which is easier to notice than a wholly fake position.</string>
+    <string name="guard_confirm_off">Turn it off</string>
 
     <!-- Main action -->
     <string name="action_start">Start spoofing</string>
@@ -104,34 +170,55 @@
 
     <!-- Map service settings -->
     <string name="settings_title">Settings</string>
-    <!-- v1.6.0: the settings page is split into two tabs. The basemap key lives under
-         "Map config"; signal tuning moved here from the home screen, and its tab reuses
-         section_advanced so the same phrase is not stored under two resource keys. -->
+    <!-- The page is split into two tabs, with signal tuning first: that is the
+         half people come back to, while the key is entered once. -->
     <string name="settings_tab_map">Map config</string>
-    <string name="settings_signal_desc">Shapes the forged position itself — accuracy, altitude, speed and drift — and what a detector is able to see. Each switch writes to the config as you flip it.</string>
+    <string name="settings_signal_desc">A forged position is a set of numbers, and accuracy, speed and drift have to agree with each other. Pick a scene first, refine if none fits — every change is written to the config as you make it.</string>
     <string name="settings_map_service">Map service</string>
-    <string name="settings_map_service_desc">The picker draws with Tencent’s base map, and looks addresses up through the system geocoder. The module itself forges positions and needs no map key at all — this page only affects the “pick on a map” screen.</string>
+    <string name="settings_map_service_desc">Affects only the picker’s base map and address lookup; the module itself needs no key.</string>
+    <!-- The four lines that used to sit on the page, now behind “Learn more”. -->
+    <string name="settings_map_service_detail">The picker draws with Tencent’s base map, and looks addresses up through the system geocoder. The module itself forges positions and needs no map key at all — this page only affects the “pick on a map” screen.</string>
     <string name="settings_provider">Base map and key</string>
-    <string name="settings_provider_desc">This build bundles one renderer, Tencent, and ships no key of its own. Paste your own Tencent key below; the setup steps are in the next card.</string>
-    <string name="settings_provider_ready">Ready — a key is present.</string>
+    <string name="settings_provider_desc">This build ships no key of its own — paste your own Tencent key.</string>
+    <string name="settings_provider_ready">Key present — run the test below to see whether Tencent accepts it.</string>
     <string name="settings_provider_missing_key">No key yet; the picker will show an empty map until you add one.</string>
     <string name="provider_tencent">Tencent</string>
     <string name="settings_key_tencent">Tencent Key</string>
     <string name="settings_sk_tencent">Tencent signing secret (SK)</string>
     <string name="settings_sk_tencent_desc">Needed only when that key has key signing switched on: without the matching secret, Tencent rejects every request with status 111. Leave blank otherwise.</string>
-    <string name="settings_key_filled">set</string>
-    <string name="settings_key_empty">not set</string>
+    <!-- Connectivity test. Each refusal gets its own sentence because each one
+         is a different fix, and the picker can only ever say "no address". -->
+    <string name="settings_probe_action">Test the key</string>
+    <string name="settings_probe_running">Testing…</string>
+    <string name="settings_probe_ok">Connected — reverse geocoding answers normally.</string>
+    <string name="settings_probe_no_key">No key typed yet.</string>
+    <string name="settings_probe_unreachable">No answer — check the network connection, then try again.</string>
+    <string name="settings_probe_111">Status 111 · signature rejected. Fill in the SK below, or switch key signing off for this key in the console.</string>
+    <string name="settings_probe_112">Status 112 · the request origin is not allowed. Empty the IP whitelist for this key, or add one that matches.</string>
+    <string name="settings_probe_113">Status 113 · this interface has no quota. Assign one under 配额管理 in the console — it is a separate step from enabling the product.</string>
+    <string name="settings_probe_199">Status 199 · WebServiceAPI is not enabled for this key. Tick it under the key\'s enabled products.</string>
+    <string name="settings_probe_120">Status 120 · the daily call quota for this key is used up.</string>
+    <string name="settings_probe_190">Status 190 · the key is not valid. Check for a character that came along when pasting.</string>
+    <string name="settings_probe_other">Status %1$d · not a code this build knows. See the status table in Tencent\'s documentation.</string>
     <string name="settings_restart_hint">A key change takes effect after this app is restarted: the SDK reads its key once, at launch.</string>
+    <string name="settings_restart_now">Restart now</string>
     <string name="settings_console_title">What the console will ask for</string>
-    <string name="settings_console_desc">Tencent Location Service binds a key to this package name and this signing certificate. Differ by one character and the key is rejected — with an error that looks exactly like a wrong key. Copy these two values instead of retyping them.</string>
+    <string name="settings_console_desc">The key is bound to this package name and this certificate — one character off and it is rejected, with an error that looks like a wrong key. Copy, do not retype.</string>
     <string name="settings_package_label">Package name</string>
     <string name="settings_sha1_label">Signing SHA-1</string>
     <string name="settings_sha1_unavailable">Could not be read</string>
     <string name="settings_copy">Copy</string>
     <string name="settings_copied">Copied</string>
-    <string name="settings_howto">How to get a key</string>
-    <string name="settings_howto_desc">%1$s keeps its setup steps below. These consoles are redesigned often; if a menu has moved, the thread is always the same — application management, create an application, fill in the package name and SHA-1.</string>
+    <string name="settings_howto">Getting a key and its quota</string>
+    <string name="settings_howto_desc">Four separate gates for %1$s: the key itself, its signing secret, the endpoint quota, and the call source. Skip any one and the key looks valid while doing nothing. Open the steps below.</string>
     <string name="steps_tencent_title">Tencent Location · lbs.qq.com</string>
-    <string name="steps_tencent_body">1. Sign in to Tencent Location Services, then Console → Application management → My applications.\n2. Create an application, then add a Key under it.\n3. Enable the products you need: Android SDK, plus WebService API for the HTTP interfaces such as reverse geocoding.\n4. Enter the package name and the SHA-1.\n5. Copy the resulting Key into the Tencent field above.</string>
+    <string name="howto_key_heading">1 · Get the key</string>
+    <string name="howto_key_body">1. Sign in at lbs.qq.com, then Console → Application management → My applications.\n2. Choose Create application — it is only a container for keys, so any name will do and there is no review. Then add a key under it.\n3. Enable two products on that one key: Android SDK for the basemap tiles, and WebService API for reverse geocoding and keyword lookup. These are separate entitlements; with Android SDK alone the map draws and the address never resolves.\n4. Android SDK requires a package name and SHA-1: enter %1$s, and copy the SHA-1 from "The two values the console asks for" above.\n5. After saving, the whole string shown in that key row is the key. Copy it into Tencent Maps key above.</string>
+    <string name="howto_sk_heading">2 · Get the SK (signing secret) — only if signing is on</string>
+    <string name="howto_sk_body">1. Application management → My applications → the key → Settings.\n2. Look at the signature verification switch. If it is off, leave the SK blank and skip this section.\n3. If it is on, that same page shows a signature secret / SK: 32 mixed-case characters. Copy the whole string into Tencent signing secret (SK) above.\n4. With signing on, a missing or wrong SK rejects every request with status 111. This is the most common reason a perfectly good key never resolves an address.</string>
+    <string name="howto_quota_heading">3 · Assign endpoint quota (the step everyone misses)</string>
+    <string name="howto_quota_body">1. Console → Quota management (some versions label it Quotas).\n2. Find WebService API → Reverse geocoding, choose Assign quota or Edit, and set the daily volume above zero. 1000 calls a day is plenty for testing.\n3. Quota is allocated per endpoint: an allowance for keyword lookup or place search does not give reverse geocoding one. Add whichever is missing.\n4. Enabling the product without assigning quota returns status 113 on every request. This is the second reason a valid key keeps failing, and the hardest one to think of unaided.\n5. A reply of 112 / 110 means the call-source allow-list blocked the IP or domain. Clear the allow-list and everything is allowed — the app sends no Referer.</string>
+    <string name="howto_status_heading">4 · What the status codes mean</string>
+    <string name="howto_status_body">0 — success, reverse geocoding works\n111 — signature rejected → fill the SK, or turn signing off\n112 / 110 — call source not allowed → clear the allow-list\n113 — this endpoint has no quota → assign it under Quota management\n199 — the key has not enabled WebService API → back to step 1\n190 / 120 — invalid key / daily limit reached\n\nAfter changing the key or SK, tap Test connection below: it makes one real request and names the gate that failed.</string>
     <string name="settings_privacy_note">Keys stay on this device, in the module’s own preferences, and are sent only to the platform’s own servers by that platform’s SDK.</string>
 </resources>

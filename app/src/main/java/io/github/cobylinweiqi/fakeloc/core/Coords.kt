@@ -12,13 +12,15 @@ import kotlin.math.sqrt
  *   actually reports. This is the system [SpoofConfig] stores and the hooks
  *   inject.
  * - **GCJ-02** — the obfuscated datum mainland China mandates for public maps.
- * - **BD-09** — Baidu's own further skew on top of GCJ-02. Everything the Baidu
- *   Map SDK hands back lives here: search hits, reverse-geocoded addresses and
- *   the map centre you dragged the pin over.
+ * - **BD-09** — Baidu's own further skew on top of GCJ-02. Everything a Baidu
+ *   location SDK reports lives here: its fixes and its reverse-geocoded
+ *   addresses.
  *
- * So a spot picked on the Baidu map arrives as BD-09, and writing that straight
- * into a `Location` would put the target roughly half a kilometre from where the
- * user tapped. [bd09ToWgs84] closes exactly that gap.
+ * The picker's basemap is Tencent's, so what it drags a pin over is GCJ-02. BD-09
+ * survives here for the *hooks*: the Baidu channel writes the anchor into
+ * `BDLocation`, whose SDK expects that anchor in Baidu's datum — hand it a raw
+ * WGS-84 pair and the target lands roughly half a kilometre from the tapped
+ * point. [wgs84ToBd09] is that direction; [bd09ToWgs84] is its inverse.
  *
  * Outside mainland China the three systems coincide and every method returns its
  * input untouched. The maths is the well-known public-domain GCJ-02 algorithm;
@@ -55,14 +57,14 @@ object Coords {
 
     // ------------------------------------------------------------ public API
 
-    /** Baidu BD-09 → WGS-84. The conversion the map picker needs. */
+    /** Baidu BD-09 → WGS-84. The inverse of [wgs84ToBd09]. */
     fun bd09ToWgs84(latitude: Double, longitude: Double): Pair<Double, Double> {
         if (!isFinite(latitude, longitude)) return latitude to longitude
         val (gcjLat, gcjLng) = bd09ToGcj02(latitude, longitude)
         return gcj02ToWgs84(gcjLat, gcjLng)
     }
 
-    /** WGS-84 → Baidu BD-09. Used to drop the current anchor onto the map. */
+    /** WGS-84 → Baidu BD-09. What the Baidu channel makes of the anchor. */
     fun wgs84ToBd09(latitude: Double, longitude: Double): Pair<Double, Double> {
         if (!isFinite(latitude, longitude)) return latitude to longitude
         val (gcjLat, gcjLng) = wgs84ToGcj02(latitude, longitude)

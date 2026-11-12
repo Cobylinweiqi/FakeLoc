@@ -66,6 +66,7 @@ private enum class Screen { HOME, MAP, SETTINGS }
 private fun FakeLocApp(viewModel: MainViewModel = viewModel()) {
     val config by viewModel.config.collectAsState()
     val serviceBound by viewModel.serviceBound.collectAsState()
+    val addressState by viewModel.addressState.collectAsState()
 
     var screenName by rememberSaveable { mutableStateOf(Screen.HOME.name) }
     // A restored bundle can name a screen this build no longer has — the target
@@ -137,6 +138,7 @@ private fun FakeLocApp(viewModel: MainViewModel = viewModel()) {
                     HomeScreen(
                         config = config,
                         serviceBound = serviceBound,
+                        addressState = addressState,
                         onUpdate = viewModel::update,
                         onTogglePlaying = viewModel::togglePlaying,
                         onUseRealGps = {
@@ -151,6 +153,9 @@ private fun FakeLocApp(viewModel: MainViewModel = viewModel()) {
                         onOpenMap = { screenName = Screen.MAP.name },
                         onOpenSettings = { screenName = Screen.SETTINGS.name },
                         onSaveCoordinates = viewModel::commitCoordinates,
+                        onPickSavedPlace = viewModel::pickSavedPlace,
+                        onTogglePin = viewModel::togglePinned,
+                        onRetryAddress = viewModel::retryAddress,
                     )
                 }
             }

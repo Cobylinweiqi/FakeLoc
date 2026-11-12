@@ -152,7 +152,15 @@ STALE_PACKAGE = ("com.amo.fakeloc", "com/amo/fakeloc",
                  "io.github.coby.fakeloc", "io/github/coby/fakeloc")
 SKIP_DIRS = {".git", ".gradle", ".kotlin", "build", ".idea", ".workbuddy"}
 SKIP_EXT = {".jar", ".png", ".webp", ".jpg", ".jpeg", ".so", ".dex",
-            ".apk", ".aab", ".zip", ".ttf", ".otf"}
+            ".apk", ".aab", ".zip", ".ttf", ".otf",
+            # Icon design blobs the design tooling drops in the repository root.
+            # Binary, and `read()` decodes as UTF-8, so leaving it in the scan
+            # takes the whole gate down rather than failing one check.
+            ".miora"}
+# Files with no useful extension. `.DS_Store` is Finder bookkeeping, it appears
+# the moment the repository is browsed in the GUI, and it is not UTF-8 — the
+# extension filter above cannot see it because it has no extension at all.
+SKIP_NAMES = {".DS_Store"}
 stale_package = []
 SELF = os.path.abspath(__file__)
 # The README is exempt from the broad scan because it legitimately names the old
@@ -164,7 +172,7 @@ STALE_EXEMPT = {SELF, os.path.abspath("README.md")}
 for directory, dirnames, names in os.walk("."):
     dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
     for name in names:
-        if os.path.splitext(name)[1].lower() in SKIP_EXT:
+        if name in SKIP_NAMES or os.path.splitext(name)[1].lower() in SKIP_EXT:
             continue
         path = os.path.join(directory, name)
         # This file has to spell the old package name out — that is what the
@@ -227,14 +235,18 @@ secret_hits = []
 for directory, dirnames, names in os.walk("."):
     dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
     for name in names:
-        if os.path.splitext(name)[1].lower() in SKIP_EXT:
+        if name in SKIP_NAMES or os.path.splitext(name)[1].lower() in SKIP_EXT:
             continue
         if name in SECRET_SKIP_NAMES:
             continue
         path = os.path.join(directory, name)
         try:
             text = read(path)
-        except OSError:
+        # UnicodeDecodeError as well as OSError: a binary file that the suffix
+        # filter did not anticipate must cost one skipped file, not the whole
+        # gate. This check sits above every count assertion, so letting it throw
+        # means nothing below runs and the run looks like a silent pass.
+        except (OSError, UnicodeDecodeError):
             continue
         for label, pattern in SECRET_SHAPES:
             for found in pattern.finditer(text):
@@ -284,12 +296,47 @@ EXPECTED = {
         # `TencentLocation.getName()` — dropping it silently puts the address in
         # both the title and the subtitle.
         "val addrPlaceName: String = \"\",": 1,
+        # v1.9.x: the city code the SDK getters answer with. Not derivable from
+        # the reverse geocoder — that one returns the administrative division
+        # code, a different namespace — so a fixed default is pinned here and a
+        # configuration that carries one still wins.
+        "private const val DEFAULT_CITY_CODE = \"194\"": 1,
+        "\"getCityCode\" -> cityCode()": 1,
+        # The guard that keeps an administrative division code out of this
+        # field: `194` is three digits, `156350200` is not, and feeding the
+        # latter to a check-in page makes it fail while the reply looks full.
+        "private fun cityCode(): String": 1,
+        "it.length in 1..4 && it.all(Char::isDigit)": 1,
+        # The street getter: hooked but unanswerable before, which is why the
+        # spoofed check-in reply carried no `street` while the real one did.
+        "val addrStreet: String = \"\",": 1,
+        "\"getStreet\" -> addrStreet": 1,
         "fun mapSecretValue(provider: MapProvider): String": 1,
         "fun withMapSecret(provider: MapProvider, value: String): SpoofConfig": 1,
         "fun mapKeyFor(provider: MapProvider): String?": 1,
         "fun mapKeyConfigured(provider: MapProvider): Boolean": 1,
         "fun mapKeyValue(provider: MapProvider): String": 1,
         "fun withMapKey(provider: MapProvider, value: String): SpoofConfig": 1,
+        # v1.13.0: the saved-place history. One array with a `pinned` flag, not
+        # two lists — two would let the same spot exist in both and disagree
+        # about its address.
+        "val places: List<SavedPlace> = emptyList(),": 1,
+    },
+    # v1.13.0 — the history. Its whole point is that the address travels with the
+    # coordinates, so the recording path is asserted to build a `PickedAddress`
+    # rather than to copy ten fields at the call site.
+    JAVA + "core/SavedPlace.kt": {
+        "data class SavedPlace(": 1,
+        "val address: PickedAddress = PickedAddress.NONE,": 1,
+        "fun SpoofConfig.currentPlace(pinned: Boolean = false): SavedPlace": 1,
+        "fun SpoofConfig.recordingAnchor(): SpoofConfig": 1,
+        "fun SpoofConfig.goToPlace(place: SavedPlace): SpoofConfig": 1,
+        "fun SpoofConfig.togglePinned(latitude: Double, longitude: Double): SpoofConfig": 1,
+        "const val RECENT_PLACES_LIMIT = 6": 1,
+        # Pins are never evicted; only the history tail is trimmed.
+        "if (place.pinned) {": 1,
+        "val SpoofConfig.pinnedPlaces: List<SavedPlace>": 1,
+        "val SpoofConfig.recentPlaces: List<SavedPlace>": 1,
     },
     JAVA + "core/MapSettings.kt": {
         "enum class MapProvider(val id: String) {": 1,
@@ -343,6 +390,16 @@ EXPECTED = {
         'private const val K_ADDR_PLACE = "addr_place"': 1,
         "put(K_ADDR_PLACE, config.addrPlaceName)": 1,
         "addrPlaceName = decodeText(json, K_ADDR_PLACE, defaults.addrPlaceName)": 1,
+        # v1.13.0: the history is written, declared and read back like every other
+        # field, and both ends are capped — the hook side must never be able to
+        # walk a list whose length came out of a blob.
+        'private const val K_PLACES = "places"': 1,
+        "put(K_PLACES, encodePlaces(config.places))": 1,
+        "places = decodePlaces(json.optJSONArray(K_PLACES)),": 1,
+        "private fun encodePlaces(places: List<SavedPlace>): JSONArray": 1,
+        "private fun decodePlaces(array: JSONArray?): List<SavedPlace>": 1,
+        "private const val MAX_PLACES = 32": 1,
+        "if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) continue": 1,
     },
     JAVA + "core/PickedAddress.kt": {
         "data class PickedAddress(": 1,
@@ -354,10 +411,37 @@ EXPECTED = {
         "val placeName: String = \"\",": 1,
         "addrPlaceName = address.placeName,": 1,
         "addrPlaceName = \"\",": 1,
+        # The city code is the one part the picker never learns from the reply,
+        # so re-picking must not blank it out: asserted as a keep-if-blank.
+        "addrCityCode = address.cityCode,": 1,
+        # The street, carried and cleared on the same two paths as every other
+        # address part.
+        "val street: String = \"\",": 1,
+        "addrStreet = address.street,": 1,
+        "addrStreet = \"\",": 1,
     },
     JAVA + "ui/MainViewModel.kt": {
         "it.moveTo(": 5,
         "it.withAnchor(": 1,
+        # v1.13.0: the history is written at this one chokepoint rather than in
+        # each path that can move the anchor — a path added later would otherwise
+        # move it without leaving a trace, and a history that skips a route is
+        # worse than no history at all.
+        "transformed.recordingAnchor()": 1,
+        "fun pickSavedPlace(place: SavedPlace)": 1,
+        "fun togglePinned(latitude: Double, longitude: Double)": 1,
+        # v1.16.0: the address is resolved at the same chokepoint, for the same
+        # reason. Five of the six ways to move the anchor drop the address, so
+        # anything set outside the map picker reached the hooks with no city to
+        # answer — and CCB's check-in page renders "地理位置获取失败" for exactly
+        # that, with perfect coordinates underneath.
+        "private fun scheduleAddress(delayMs: Long = ADDRESS_DEBOUNCE_MS)": 1,
+        "it.withResolvedAddress(found)": 1,
+        "fun retryAddress()": 1,
+        # The in-flight answer must not be written over an anchor that moved
+        # while it was travelling; that would put one city's name on another
+        # city's coordinates.
+        "if (now.latitude != latitude || now.longitude != longitude) return@launch": 1,
     },
     JAVA + "MainActivity.kt": {
         "viewModel.applyMapPick(latitude, longitude, address)": 1,
@@ -475,7 +559,13 @@ EXPECTED = {
         "Log.w(": 2,
         "private const val LOOKUP_TAG = \"FakeLoc/MapLookup\"": 1,
         "adCode = firstNonBlank(info?.adcode)": 1,
-        "cityCode = firstNonBlank(info?.city_code)": 1,
+        "street = firstNonBlank(component?.street)": 1,
+        # `city_code` here is the administrative division code, *not* what
+        # `getCityCode()` speaks: reading it pinned a value CCB's check-in page
+        # cannot look up (156430600 instead of its own 194). Asserted gone, and
+        # the constant that answers for the field instead is asserted below.
+        "cityCode = firstNonBlank(info?.city_code)": 0,
+        "cityCode = \"\",": 1,
         # v1.7.2: the recommended place label. It is the *only* producer of
         # `addrPlaceName`, and therefore of what a check-in chip prints as the
         # place — losing the line would leave `getName()` answering the SDK's
@@ -483,6 +573,13 @@ EXPECTED = {
         "reverse.formatted_addresses?.recommend": 1,
         "placeName = placeName,": 1,
         "private fun firstNonBlank(vararg values: String?): String": 1,
+        # v1.11.0: the status code stopped being discarded. One caller wants an
+        # address and one wants the code, and both now go through the single
+        # `geo2address` call site — two copies of the listener would drift, and
+        # the copy that drifted would be the one whose log nobody read.
+        "private suspend fun callGeo2Address(": 1,
+        "internal suspend fun tencentProbe(": 1,
+        "internal sealed interface TencentProbe": 1,
     },
     JAVA + "mapsdk/MapSdkBootstrap.kt": {
         "private fun startTencent()": 1,
@@ -506,30 +603,64 @@ EXPECTED = {
         # resource lookups all ignored their argument once one entry was left.
         # A function that always returns the same constant is a lie about there
         # being a choice, so they are gone and the strings are addressed directly.
+        #
+        # v1.12.0: chips return, and the distinction is the point — v1.5.0's
+        # chips switched between map vendors when only one vendor was left, so
+        # they could not do anything. These pick a scene preset, and the numbers
+        # behind them differ. Four occurrences: two imports, the call, and the
+        # colour lookup that keeps the selected chip on the container colour.
         "private fun PickerRow(": 0,
-        "FilterChip": 0,
-        "FlowRow": 0,
-        "ExperimentalLayoutApi": 0,
+        "FilterChip": 4,
+        "FlowRow": 2,
+        "ExperimentalLayoutApi": 2,
         "private fun keyLabel(": 0,
         "private fun stepsTitle(": 0,
         "private fun stepsBody(": 0,
         "R.string.settings_key_tencent": 1,
         "R.string.steps_tencent_title": 1,
-        "R.string.steps_tencent_body": 1,
+        # v1.14.0: the five-line step list became four titled sections — the key,
+        # its signing secret, the endpoint quota, and a status-code table. The
+        # quota section is the reason this exists: that gate fails with its own
+        # code (113), says nothing, and the default allocation is zero, so it is
+        # the one a user cannot reason their way to. The old flat body is gone.
+        "R.string.steps_tencent_body": 0,
+        "private data class DetailSection(": 1,
+        "private val TENCENT_HOWTO = listOf(": 1,
+        "sections = TENCENT_HOWTO": 1,
+        "packageName = packageName": 1,
+        "R.string.howto_key_body": 1,
+        "R.string.howto_sk_body": 1,
+        "R.string.howto_quota_body": 1,
+        "R.string.howto_status_body": 1,
+        # Four sections no longer fit above the buttons, so the dialog body has
+        # to scroll; without this the last section is simply unreachable.
+        "modifier = Modifier.verticalScroll(rememberScrollState())": 1,
         # v1.4.0 removed the credential switch; v1.5.0 removed the provider one.
         "private fun CredentialCard(": 0,
         "MapCredential": 0,
         "builtinActive": 0,
-        "private fun HowToCard(provider: MapProvider)": 1,
+        # The package name is an argument now, not a literal in the string: it
+        # has to match the one the console is told, and a hard-coded copy would
+        # survive a rename.
+        "private fun HowToCard(provider: MapProvider, packageName: String)": 1,
         "private fun KeyField(": 1,
         "private fun Steps(": 0,
-        "config.mapKeyValue(provider)": 1,
+        # v1.11.0: both accessors are now read twice — once by the field that
+        # binds them and once by the connectivity test, which needs the same two
+        # values to make a real request. Still routed through the provider, so
+        # the screen stays ignorant of which named field it is editing.
+        "config.mapKeyValue(provider)": 2,
         "it.withMapKey(provider, typed)": 1,
         # v1.7.1: the signing secret gets its own field beside the key. Both are
         # still read and written through the provider, so the screen does not
         # have to know which named field it is editing.
-        "config.mapSecretValue(provider)": 1,
+        "config.mapSecretValue(provider)": 2,
         "it.withMapSecret(provider, typed)": 1,
+        # v1.11.0: the one control on this page that can honestly say a key
+        # *works*. `mapKeyConfigured` only ever answered "a string is present".
+        "tencentProbe(": 1,
+        "R.string.settings_probe_action": 1,
+        "private fun ConnectivityTest(": 1,
         # Suffixed so the two cannot match each other: the label's resource name
         # is a prefix of the description's, and a bare count would see two of it.
         "R.string.settings_sk_tencent),": 1,
@@ -544,16 +675,63 @@ EXPECTED = {
         "R.string.section_advanced": 1,
         "R.string.settings_signal_desc": 1,
         "private fun SignalTuningCard(": 1,
-        "ToggleRow(": 8,
+        # v1.12.0: eight toggles became four dials plus four guarded switches,
+        # in three cards. The counts below are the move — four plain ToggleRow
+        # calls for the dials, and one inside GuardSwitch, which is the only
+        # place a detection switch can be rendered. Five, not eight, is what
+        # proves the anti-detection group left this list.
+        "ToggleRow(": 5,
         "SliderRow(": 5,
+        "private fun SceneCard(": 1,
+        "private fun ShapeCard(": 1,
+        "private fun GuardsCard(": 1,
+        "private fun GuardSwitch(": 1,
+        # The preset table and the matcher that decides whether a chip is lit.
+        # One data class, three rows, one `matches` — a new preset added without
+        # a row would change the first number, and a chip lit on a config it no
+        # longer describes would need `matches` to go missing.
+        "private val SCENE_PRESETS = listOf(": 1,
+        "ScenePreset(": 4,
+        "fun matches(config: SpoofConfig): Boolean": 1,
+        # Only the two that fail silently ask first. Both go through the same
+        # dialog, so one AlertDialog is all this file should contain.
+        # v1.13.0: two, and the second is a different kind. One is the guard
+        # confirmation (the only switch that may ask twice); the other is
+        # `DetailExpander`, which holds the paragraphs that used to be printed
+        # inline. Counting them together is still the check that matters: a
+        # third AlertDialog would mean a second place a switch can silently
+        # change behaviour, and that is the thing this number is watching.
+        "AlertDialog(": 2,
+        "R.string.guard_confirm_map_sdk": 1,
+        "R.string.guard_confirm_sync_address": 1,
         "import androidx.compose.material.icons.rounded.LocationCity": 1,
         "config.syncAddress": 1,
         "R.string.adv_sync_address)": 1,
         "R.string.adv_sync_address_desc)": 1,
-        # A missing Saver on this state would drop the tab on rotate; the two
-        # scroll states are what keep each tab's offset across a switch.
-        "rememberSaveable { mutableStateOf(SettingsTab.MAP.name) }": 1,
+        # v1.13.0: the tuning half is now the tab the page opens on — it is the
+        # half people come back to, and the key is entered once. Asserted on the
+        # initial value, because an enum order alone does not decide which tab a
+        # user sees.
+        "rememberSaveable { mutableStateOf(SettingsTab.SIGNAL.name) }": 1,
         "val signalScroll = rememberScrollState()": 1,
+        # v1.13.0: each of the four dials is disabled with its switch instead of
+        # being removed by it. Four `enabled = config.use…` arguments are the
+        # move — one missing would leave a slider that looks live and is not.
+        "enabled = config.useAccuracy,": 1,
+        "enabled = config.useAltitude,": 1,
+        "enabled = config.useSpeed,": 1,
+        "enabled = config.driftEnabled,": 2,
+        # The consequence of switching one off, written under the control.
+        "private fun OffNote(": 1,
+        "R.string.off_accuracy": 1,
+        "R.string.off_altitude": 1,
+        "R.string.off_speed": 1,
+        "R.string.off_drift": 1,
+        # The inline essays are behind a dialog now; the dialog is one composable
+        # so the map half cannot grow a second, differently-behaved one.
+        "private fun DetailExpander(": 1,
+        "R.string.settings_map_service_detail": 1,
+        "R.string.action_learn_more": 1,
     },
     JAVA + "xposed/HookState.kt": {
         # The `:suffix` stripping left with the target list it existed for: a
@@ -603,7 +781,7 @@ EXPECTED = {
         "private class TencentFlavor(": 1,
         '"com.tencent.map.geolocation.sapp.TencentLocationManager"': 1,
         '"com.tencent.map.geolocation.sapp.TencentLocationListener"': 1,
-        "private fun installTencentFlavor(loader: ClassLoader, flavor: TencentFlavor) {": 1,
+        "private fun installTencentFlavor(loader: ClassLoader, flavor: TencentFlavor): Boolean {": 1,
         # The listener is recognised by method shape, not by type name: a
         # repackaged interface must not be able to switch the subscription path
         # off. The type lookup above is a diagnostic only.
@@ -615,21 +793,133 @@ EXPECTED = {
         "private fun armTencentPayloadClass(clazz: Class<*>, flavor: TencentFlavor) {": 1,
         "private fun installTencentPoiReads(clazz: Class<*>, flavor: TencentFlavor) {": 1,
         "private fun armTencentPoi(clazz: Class<*>, flavor: TencentFlavor) {": 1,
-        "private fun installAmap(loader: ClassLoader) {": 1,
-        "private fun installBaidu(loader: ClassLoader) {": 1,
-        "private fun installTencent(loader: ClassLoader) {": 1,
+        "private fun installAmap(loader: ClassLoader): Boolean {": 1,
+        "private fun installBaidu(loader: ClassLoader): Boolean {": 1,
+        "private fun installTencent(loader: ClassLoader): Boolean {": 1,
+        # v1.10.0 (加固包补丁): "armed" is a fact about one channel, not about a
+        # loader. A single set filled on entry turned the one attempt that runs
+        # before a hardened app has decrypted its dex into a permanent
+        # "already done", and the app then had no channel at all while the log
+        # said nothing.
+        "fun install(classLoader: ClassLoader): Int {": 1,
+        "private val amapArmed: MutableSet<ClassLoader> = newLoaderSet()": 1,
+        "private val baiduArmed: MutableSet<ClassLoader> = newLoaderSet()": 1,
+        "private val tencentArmed: MutableSet<ClassLoader> = newLoaderSet()": 1,
+        "private fun newLoaderSet(): MutableSet<ClassLoader> =": 1,
+        "private val missReported: MutableMap<ClassLoader, MutableSet<String>> =": 1,
+        "private fun reportMissing(loader: ClassLoader, sdk: String, detail: String): Boolean {": 1,
+        # The failure that motivated all of the above must stay *sayable*: one
+        # line per loader and SDK, not one per retry.
+        '"$sdk SDK not reachable from ${loader.javaClass.name} yet ($detail) — will retry"': 1,
         # v1.3.0: BDLocation(String) is a JSON ctor, not a provider one.
         "private class BaiduFactory(": 1,
         "val factory = BaiduFactory.of(locationClass)": 1,
         "private const val EMPTY_JSON = \"{}\"": 1,
         "newInstance(PROVIDER)": 1,
+        # v1.10.0 (打卡修复) — rewriting the coordinates is not enough when the
+        # SDK's own callback is a *failure*: `strictSources` has already cut
+        # getAllCellInfo / getScanResults, so Baidu answers 167 (server could not
+        # locate) or 505 (request refused) with our coordinates inside. An app
+        # that branches on getLocType() reads the type and reports "location
+        # failed". The type, not the numbers, is what has to be rescued.
+        "private const val BD_TYPE_NETWORK = 161": 1,
+        "private val locTypeGetter = HookKit.findMethod(locationClass, \"getLocType\")": 1,
+        "} else if (!succeeded(locTypeOf(target))) {": 1,
+        "call(locType, target, BD_TYPE_NETWORK)": 1,
+        "private fun succeeded(type: Int?): Boolean =": 1,
+        # v1.10.0 (H5 诊断补丁): 失败码救援必须也发生在 *读类型* 的那一步。
+        # 只在 `apply()` 里救援等于赌 App 先读坐标 —— 而几乎每个 App 都是先读
+        # locType 再决定要不要读坐标，于是救援永远不执行，屏幕上还是"获取失败"。
+        'HookKit.hookAll(locationClass, "getLocType", TAG)': 1,
+        "fun locTypeOf(target: Any): Int? =": 1,
+        "private fun recordCallback(listener: Any, reported: Int?) {": 1,
+        "type in 61..66 || type == 68 || type == BD_TYPE_NETWORK": 1,
+        # The type must be read *before* the write, or the breadcrumb always
+        # reports our own value and the diagnosis is lost.
+        "val reported = writer.locTypeOf(payload)": 1,
+        # Two call sites on purpose: the getter path (what the app reads) and the
+        # callback path (what the app is handed). Both have to carry the type fix.
+        "writer.apply(payload)": 2,
+    },
+    # v1.10.0 (加固包补丁) — the second attempt at arming the SDK channels. Its whole reason
+    # to exist is the *timing*, so what is pinned is the framework hook that runs
+    # after the packer has decrypted the dex, and the fact that the retries go
+    # through the same entry point as the first attempt.
+    JAVA + "xposed/hooks/LateArmHooks.kt": {
+        "internal object LateArmHooks {": 1,
+        "Instrumentation::class.java, \"callApplicationOnCreate\", TAG": 1,
+        "private val RETRY_DELAYS_MS = longArrayOf(": 1,
+        "runCatching { MapSdkHooks.install(loader) }": 1,
+        "runCatching { include(application.classLoader) }": 1,
+        "runCatching { include(application.baseContext?.classLoader) }": 1,
+        # Reaching into hidden API was the alternative and is deliberately not
+        # done: the framework hands us the Application, so there is nothing to
+        # reflect into.
+        "ActivityThread": 0,
+        "getDeclaredMethod": 0,
+        # The shell that forced this file is named in the KDoc as evidence, and
+        # nowhere else — a hook on a packer's class would break every other app.
+        "com.secneo.apkwrapper.AW": 1,
+        "libDexHelper.so": 1,
+    },
+    # v1.10.0 (H5 诊断补丁) — 「位置获取失败」到底是我们的锅，还是页面根本没问过任何人，
+    # 取决于三件事：页面加载了哪些命令类、Chromium 有没有被要过权限、最终回给页面的脚本
+    # 长什么样。这几条断言把那个取证面钉住，免得有人"顺手清理"掉唯一能区分三者的一层。
+    JAVA + "xposed/hooks/WebBridgeHooks.kt": {
+        "internal object WebBridgeHooks {": 1,
+        'HookKit.hookAll(ClassLoader::class.java, "loadClass", TAG)': 1,
+        'HookKit.hookAll(WebView::class.java, "evaluateJavascript", TAG)': 1,
+        '"onGeolocationPermissionsShowPrompt",': 1,
+        'private val CMD_MARKERS = arrayOf(".ecpweb.cmd.")': 1,
+        "private const val JS_BUDGET = 20": 1,
+        # 只报告、不 hook 命令类：命令集随 App 版本整批换名，挂在不存在的名字上是死重量。
+        "clazz.declaredMethods": 1,
+        # 例外只开给两个入口（`doWork` / `startLocation`），且在类**第一次加载**时装 ——
+        # 页面实例化命令后立刻调用，晚一步就错过失败的那一次。理由（2026-11-12）：
+        # 异步回包 `PJF.shellNotify` 字段全对而页面仍报“获取失败”，`doWork` 的返回值
+        # 是唯一还在视野外的通道。
+        'HookKit.hookAll(clazz,': 2,
+        # 第二处是修复，不只是探测：`doWork` 同步回 `{"result":"定位失败","success":false}` 时，
+        # 页面胶水 `if (o.success) this.once(...)` 根本没注册回调，异步的成功回包发给空气。
+        # 2026-11-12 用 CDP 实测确认，详见 WebBridgeHooks#repairLocationReply。
+        "private const val LOCATION_COMMAND = \"getlocation\"": 1,
+        "private fun repairLocationReply(clazz: Class<*>)": 1,
+        "internal fun repairReply(result: Any?): Any?": 1,
+        "private fun locationPayload(): Map<String, Any>?": 1,
+        # 载荷必须是**对象**而不是 JSON 字符串：页面胶水把 `resp.result` 直接交给业务代码
+        # （`options.success(resp.result)`），业务代码读 `e.latitude` / `e.address`。字符串
+        # 里字字都对，属性一个都没有 —— 2026-11-12 用 CDP 在真页面上验证过两种形态。
+        "fields[\"latitude\"] = lat": 1,
+        # JS 注入方向不走 `addJavascriptInterface`（命令由 native 分发器派发），
+        # 挂在那里既看不到调用也看不到回包。
+        "addJavascriptInterface": 0,
+    },
+    JAVA + "xposed/hooks/DynamicLoaderHooks.kt": {
+        # Both resolution points, because a packer may override `loadClass`
+        # without delegating to `super` — and then the public method, where every
+        # other app is caught, is never reached.
+        'val hooked = watch("loadClass") + watch("findClass")': 1,
+        "private fun watch(methodName: String): Int =": 1,
+        '"com.amap.api.location.",': 1,
+        '"com.baidu.location.",': 1,
+        '"com.tencent.map.geolocation.",': 1,
     },
     JAVA + "ui/HomeScreen.kt": {
         "import androidx.compose.material.icons.rounded.LocationCity": 0,
         "config.syncAddress": 1,
         "R.string.adv_sync_address)": 0,
         "R.string.adv_sync_address_desc)": 0,
-        "R.string.addr_unresolved": 1,
+        # v1.16.0: the unresolved-address line became an action, so it split into
+        # three by cause. The old single string is gone on purpose — it told the
+        # user to open the map picker even when there was no key, which is a
+        # button that cannot work.
+        "R.string.addr_unresolved": 0,
+        "R.string.addr_resolving": 1,
+        "R.string.addr_retry": 1,
+        "R.string.addr_no_key": 1,
+        # Two declarations: the screen takes it and the status card takes it —
+        # the line that needs it sits inside the card.
+        "onRetryAddress: () -> Unit": 2,
         "WrongLocation": 0,
         "adv_blank_address": 0,
         # v1.6.0: the tuning card left for the settings page. v1.7.2: the
@@ -646,6 +936,47 @@ EXPECTED = {
         "R.string.targets_fixed_desc": 1,
         "onOpenTargets": 0,
         "rounded.Apps": 0,
+        # v1.11.0: the master switch moved out of the scroll and into the status
+        # card, and the pill stopped conflating "idle" with "not connected".
+        # Both are asserted because both were the defect: a start button below
+        # six cards is a button nobody finds, and a pill driven by `playing`
+        # accused a healthy install of being inactive.
+        "private fun PrimaryActionButton(playing: Boolean, onClick: () -> Unit)": 1,
+        "RowDivider()\n        Spacer(Modifier.height(14.dp))\n\n        PrimaryActionButton(": 1,
+        "PillTone.WARN": 1,
+        "R.string.status_module_ready": 1,
+        "R.string.state_unbound_sub": 1,
+        # The explanation dialog. Its three cases are the three ways LSPosed
+        # silently fails to inject, and it is the only reason a pill is allowed
+        # to say "not active" at all.
+        "R.string.module_help_body": 1,
+        "AlertDialog(": 1,
+        # The editor's saved/unsaved/pending split.
+        "R.string.coord_pending": 1,
+        # v1.13.0: 最近 / 收藏 / 城市 in one card. The eight built-in cities
+        # answered a question almost nobody asks; the places a user returns to
+        # are their office and last week's check-in, which no hand-written list
+        # can contain.
+        "private fun PlacesCard(": 1,
+        "private fun SavedPlaceRow(": 1,
+        "private fun PlaceModeChip(": 1,
+        "import androidx.compose.material.icons.rounded.Place": 1,
+        # Suffixed so the chip label and the empty-state line cannot match each
+        # other — one is a prefix of the other.
+        "R.string.places_recent)": 1,
+        "R.string.places_recent_empty": 1,
+        # v1.13.0: the pair of equal-weight buttons above the map card is gone.
+        # One filled the coordinate box, the other replaced the anchor — an input
+        # and a state change, which should not look like siblings. Both now live
+        # under the fields as text actions.
+        "QuickActionsRow": 0,
+        "R.string.action_paste)": 1,
+        "R.string.action_use_real_gps)": 1,
+        # v1.13.0: region first, then the POI label — the order a Chinese address
+        # is written in. The label is trimmed against the region first, because a
+        # recommended name usually opens with its own administrative name.
+        "listOf(region, label)": 1,
+        "it.startsWith(region)": 1,
     },
     "app/src/main/AndroidManifest.xml": {
         # v1.4.1: the SDK gets its key from `setApiKey`, not from a meta-data
@@ -689,8 +1020,40 @@ EXPECTED = {
         # `sapp` Tencent channel for 企业微信 check-in is in. Numbered past the
         # published 1.8.0 / 1.9.0 on purpose, so the version string sorts with the
         # code and the versionCode still upgrades over 1.9.0's 19.
-        "versionCode = 20": 1,
-        'versionName = "1.10.0"': 1,
+        # v1.11.0 — manager UI only, no hook changed. Numbered past 1.10.0
+        # because that build is already on the phone.
+        # v1.12.0 — manager UI only again. Numbered past 1.11.0 because that
+        # build exists as an artifact even though it was never installed.
+        # v1.13.0 — the last UI round, and the only one that changes the
+        # persisted schema (an additive `places` array, no version bump needed).
+        # v1.14.0 — manager UI only: the key-registration steps are now four
+        # titled sections covering the key, its signing secret, the per-endpoint
+        # quota, and the status codes those three gates return.
+        # v1.15.0 — manager UI only: the launcher icon was replaced with artwork
+        # (two WebP layers per density instead of the two vector XMLs).
+        # v1.16.0 — the anchor resolves its own address. First release since
+        # 1.10.0 that changes hook behaviour: a reply that carries no address is
+        # no longer repaired silently, and `getAddrStr` assembles the parts when
+        # the picker received no formatted line.
+        # v1.17.0 — manager UI only: the launcher artwork swapped to a pixel-art
+        # master (tools/icon-master-pixel.png); both adaptive-icon layers are
+        # re-derived by make-icons.py with the composition re-measured.
+        "versionCode = 27": 1,
+        'versionName = "1.17.0"': 1,
+        "versionCode = 26": 0,
+        'versionName = "1.16.0"': 0,
+        "versionCode = 25": 0,
+        'versionName = "1.15.0"': 0,
+        "versionCode = 24": 0,
+        'versionName = "1.14.0"': 0,
+        "versionCode = 23": 0,
+        'versionName = "1.13.0"': 0,
+        "versionCode = 22": 0,
+        'versionName = "1.12.0"': 0,
+        "versionCode = 21": 0,
+        'versionName = "1.11.0"': 0,
+        "versionCode = 20": 0,
+        'versionName = "1.10.0"': 0,
         "versionCode = 19": 0,
         'versionName = "1.9.0"': 0,
         # PR #1 shipped this as 1.7.2 / 18; it is folded into 1.10.0 instead, so
@@ -841,7 +1204,12 @@ missing_named = [
                     "map_sdk_failed", "map_sdk_restart", "cd_settings",
                     "map_failed_desc", "map_datum_note", "settings_provider_desc",
                     "settings_howto_desc", "provider_tencent",
-                    "settings_key_tencent", "steps_tencent_title", "steps_tencent_body",
+                    "settings_key_tencent", "steps_tencent_title",
+                    # v1.14.0: the four sections that replaced steps_tencent_body.
+                    "howto_key_heading", "howto_key_body",
+                    "howto_sk_heading", "howto_sk_body",
+                    "howto_quota_heading", "howto_quota_body",
+                    "howto_status_heading", "howto_status_body",
                     # v1.6.0: the two tab captions and the tuning intro. The tuning
                     # tab deliberately reuses section_advanced, so that key is
                     # asserted here too — it is now load-bearing in two places.
@@ -890,8 +1258,11 @@ for item in mismatched:
 # provider", or names a console other than Tencent's, is now *false advice* —
 # worse than a missing string, because the user acts on it and fails.
 # adv_map_sdk_desc is exempt on purpose: it describes the injection channels,
-# which really do hook all three vendor SDKs inside the target app.
-VENDOR_WORDING_EXEMPT = {"adv_map_sdk_desc", "adv_map_sdk"}
+# which really do hook all three vendor SDKs inside the target app. v1.12.0's
+# two consequence lines are exempt for the same reason — they name which SDKs
+# stop being taken over, and that sentence is the point of the warning.
+VENDOR_WORDING_EXEMPT = {"adv_map_sdk_desc", "adv_map_sdk",
+                         "guard_off_map_sdk", "guard_confirm_map_sdk"}
 STALE_NEEDLES = ("百度", "Baidu", "高德", "Amap", "三家",
                  "none of the three", "Another provider", "Each platform")
 stale_wording = []

@@ -93,6 +93,19 @@ import kotlin.coroutines.resume
  */
 private const val LOOKUP_TAG = "FakeLoc/MapLookup"
 
+/** Tencent's "request accepted" code, the only non-error status it returns. */
+private const val STATUS_OK = 0
+
+/**
+ * The request never left the device — the SDK refused to build it, or its
+ * network layer threw. Distinct from any positive status, because a positive
+ * one means Tencent saw the request and said no for a reason we can name.
+ */
+private const val STATUS_LOCAL_FAILURE = -1
+
+/** The timeout fired before any answer arrived. */
+private const val STATUS_TIMEOUT = -2
+
 /** How long a lookup may take before the caller falls back to its own path. */
 private const val LOOKUP_TIMEOUT_MS = 6_000L
 
@@ -136,8 +149,79 @@ internal suspend fun tencentReverseGeocode(
     secretKey: String?,
     latitude: Double,
     longitude: Double,
-): PickedAddress? = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
-    suspendCancellableCoroutine { cont ->
+): PickedAddress? {
+    // The status is dropped here on purpose: every caller of this function has
+    // its own fallback and only asks whether an address arrived. The settings
+    // page's connectivity test is the one place the code is the answer, and it
+    // reads it through [tencentProbe] instead.
+    val (address, _) = callGeo2Address(context, apiKey, secretKey, latitude, longitude)
+    return address
+}
+
+/**
+ * How a connectivity probe ended.
+ *
+ * The four cases are not decoration — they are the four questions a user asks
+ * when the picker draws tiles but resolves no address, and collapsing them into
+ * "failed" is what made this take a whole afternoon to diagnose on 2026-09-30.
+ * [Rejected] carries Tencent's own status so the UI can name the gate that
+ * refused rather than guessing.
+ */
+internal sealed interface TencentProbe {
+    /** The key answered and an address came back: everything works. */
+    data object Ok : TencentProbe
+
+    /** No key configured, so nothing was ever sent. Not a failure — a blank. */
+    data object NoKey : TencentProbe
+
+    /** No answer at all: unreachable host, no network, or the timeout fired. */
+    data object Unreachable : TencentProbe
+
+    /** Tencent's gateway answered and refused; [status] is its reason. */
+    data class Rejected(val status: Int) : TencentProbe
+}
+
+/**
+ * One `geo2address` round trip, judged as a yes/no on the credential.
+ *
+ * Fired from the settings page against a fixed point in Beijing rather than the
+ * user's anchor: the question is "does this key work", and answering it must not
+ * depend on whether an address has been picked yet.
+ */
+internal suspend fun tencentProbe(
+    context: Context,
+    apiKey: String?,
+    secretKey: String?,
+    latitude: Double,
+    longitude: Double,
+): TencentProbe {
+    if (apiKey.isNullOrBlank()) return TencentProbe.NoKey
+    val (_, status) = callGeo2Address(context, apiKey, secretKey, latitude, longitude)
+    return when {
+        status == STATUS_OK -> TencentProbe.Ok
+        status <= 0 -> TencentProbe.Unreachable
+        else -> TencentProbe.Rejected(status)
+    }
+}
+
+/**
+ * The single `geo2address` round trip, keeping the server's status code.
+ *
+ * Extracted so there is exactly one place that knows how to call this endpoint
+ * and exactly one place that logs a refusal. Two copies would drift, and the
+ * copy that drifted would be the one nobody was reading the log from.
+ *
+ * The second element of the pair is Tencent's status on a refusal, [STATUS_OK]
+ * on success, and a non-positive value when the request never left the device.
+ */
+private suspend fun callGeo2Address(
+    context: Context,
+    apiKey: String?,
+    secretKey: String?,
+    latitude: Double,
+    longitude: Double,
+): Pair<PickedAddress?, Int> = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
+    suspendCancellableCoroutine<Pair<PickedAddress?, Int>> { cont ->
         val (gcjLat, gcjLng) = toGcj02(latitude, longitude)
         val param = Geo2AddressParam(LatLng(gcjLat, gcjLng))
             // The point handed over is already GCJ-02, so the request must not
@@ -153,7 +237,7 @@ internal suspend fun tencentReverseGeocode(
 
         val search = runCatching { newSearch(context, apiKey, secretKey) }.getOrNull()
         if (search == null) {
-            cont.resume(null)
+            cont.resume(null to STATUS_LOCAL_FAILURE)
             return@suspendCancellableCoroutine
         }
 
@@ -167,7 +251,7 @@ internal suspend fun tencentReverseGeocode(
                     ) {
                         // The continuation is already dead if the timeout won.
                         // Resuming it then is not a no-op — it throws.
-                        if (cont.isActive) cont.resume(readAddress(response))
+                        if (cont.isActive) cont.resume(readAddress(response) to STATUS_OK)
                     }
 
                     override fun onFailure(
@@ -186,7 +270,7 @@ internal suspend fun tencentReverseGeocode(
                             "reverse geocode rejected: status=$statusCode " +
                                 "body=$responseBody err=${error?.message}",
                         )
-                        if (cont.isActive) cont.resume(null)
+                        if (cont.isActive) cont.resume(null to statusCode)
                     }
                 },
             )
@@ -194,10 +278,10 @@ internal suspend fun tencentReverseGeocode(
             // `checkParams` and the network layer can both throw synchronously.
             // Letting that escape would take down the picker for a lookup that
             // is supposed to be optional.
-            if (cont.isActive) cont.resume(null)
+            if (cont.isActive) cont.resume(null to STATUS_LOCAL_FAILURE)
         }
     }
-}
+} ?: (null to STATUS_TIMEOUT)
 
 /**
  * Keyword suggestions for the search box, through the same SDK and key.
@@ -351,9 +435,22 @@ private fun readAddress(response: Geo2AddressResultObject?): PickedAddress? {
         // No town level: `AddressComponent` stops at district + street. Left
         // blank, which `addressFor` reads as "leave that getter alone".
         town = "",
-        // The two fields v1.5.0 dropped on the floor, recovered.
+        // The street *is* there, on the component and nowhere else (`ad_info`
+        // has no equivalent). Measured 2026-11-12: a real fix handed the check-in
+        // page `street:"领事馆路"` beside the formatted address, while the
+        // spoofed reply had no street at all — `getStreet()` was being hooked
+        // but had nothing to answer with.
+        street = firstNonBlank(component?.street),
+        // The field v1.5.0 dropped on the floor, recovered.
         adCode = firstNonBlank(info?.adcode),
-        cityCode = firstNonBlank(info?.city_code),
+        // Deliberately *not* `info.city_code`, although it is right there. The
+        // two are different namespaces: this one is the administrative division
+        // code (`156430600` for 岳阳), while `getCityCode()` is whatever the
+        // consuming app uses internally — CCB's check-in page expects its own
+        // `194` and rejects the administrative one. Storing it here would
+        // overwrite the pinned default with a value that page cannot look up,
+        // so this stays blank and `SpoofConfig.addressFor` answers instead.
+        cityCode = "",
         placeName = placeName,
         line = reverse.address.orEmpty().ifBlank { joined },
     )

@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Holds the LSPosed service connection for the whole app, and brings up the
- * Baidu Map SDK that the map picker needs.
+ * Holds the LSPosed service connection for the whole app. It does *not* bring up
+ * the Tencent Map SDK the map picker draws with — see [onCreate] for why.
  *
  * The manager UI has no root and no privileged channel: the only way it can
  * reach the module's remote preferences is by binding to LSPosed's service, which

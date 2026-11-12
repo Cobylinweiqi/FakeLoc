@@ -29,6 +29,13 @@ import io.github.cobylinweiqi.fakeloc.xposed.HookKit
  * loading is by definition the loader the SDK lives in — so it is the loader
  * [MapSdkHooks] is pointed at.
  *
+ * `findClass` is watched as well, and not as a duplicate: a loader built by a
+ * packer may override `loadClass` without delegating to `super`, in which case
+ * the public method is never reached and only the protected resolution hook
+ * sees the name. On a normal app this second hook simply never fires for an SDK
+ * name, because the platform loader resolves through `loadClass`'s own call to
+ * `findClass` — which is the same event, deduplicated by loader.
+ *
  * ## What it costs
  *
  * This is the hottest hook in the module — every class load in the process goes
@@ -38,8 +45,9 @@ import io.github.cobylinweiqi.fakeloc.xposed.HookKit
  * Nothing is allocated on the rejecting path beyond the argument list libxposed
  * builds for every hook regardless.
  *
- * The [MapSdkHooks.install] it delegates to is idempotent per loader, so an SDK
- * that loads a hundred of its own classes arms the channels exactly once.
+ * The [MapSdkHooks.install] it delegates to is idempotent per loader *and per
+ * channel*, so an SDK that loads a hundred of its own classes arms each channel
+ * exactly once.
  */
 internal object DynamicLoaderHooks {
 
@@ -75,7 +83,14 @@ internal object DynamicLoaderHooks {
     private val resolving = ThreadLocal<Boolean>()
 
     fun install() {
-        val hooked = HookKit.hookAll(ClassLoader::class.java, "loadClass", TAG) { chain ->
+        val hooked = watch("loadClass") + watch("findClass")
+        if (hooked > 0) {
+            HookKit.info(TAG, "watching for map SDK class loaders ($hooked loadClass overload(s))")
+        }
+    }
+
+    private fun watch(methodName: String): Int =
+        HookKit.hookAll(ClassLoader::class.java, methodName, TAG) { chain ->
             val forwarded = chain.proceed()
 
             val name = chain.args.getOrNull(0) as? String
@@ -85,10 +100,6 @@ internal object DynamicLoaderHooks {
             }
             forwarded
         }
-        if (hooked > 0) {
-            HookKit.info(TAG, "watching for map SDK class loaders ($hooked loadClass overload(s))")
-        }
-    }
 
     private fun arm(className: String, source: ClassLoader) {
         resolving.set(true)

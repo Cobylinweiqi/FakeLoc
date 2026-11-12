@@ -1,6 +1,25 @@
 package io.github.cobylinweiqi.fakeloc.core
 
 /**
+ * City code handed to the map SDK when the configuration has none.
+ *
+ * This is **not** an administrative division code. [addrCityCode] answers the
+ * SDK's own `getCityCode()`, and the consumers are app-internal lookup tables:
+ * CCB's employee app takes the value verbatim out of `BDLocation.getCityCode()`
+ * and puts it in the `cityCode` field of the reply it hands to its check-in H5
+ * page, where the page matches it against a table keyed by CCB's own city
+ * numbers. Measured 2026-11-12: with a real fix that page received `194` and
+ * one particular city; with the spoofed one the field was missing entirely and
+ * the page rendered "地理位置获取失败".
+ *
+ * Tencent's WebService has no equivalent field — `/ws/geocoder/v1/` returns the
+ * administrative code (`156430600` for 岳阳), which is a *different* namespace
+ * and fails such a lookup. So the value is pinned here instead of derived, and
+ * a configuration that does carry one still wins (see [SpoofConfig.addressFor]).
+ */
+private const val DEFAULT_CITY_CODE = "194"
+
+/**
  * The whole spoofing state, shared between the manager UI and the hooks.
  *
  * It is deliberately a single object serialised into a single preference key:
@@ -123,6 +142,16 @@ data class SpoofConfig(
     val addrCity: String = "",
     val addrDistrict: String = "",
     val addrTown: String = "",
+    /**
+     * The street name, as `getStreet()` reports it.
+     *
+     * Separate from [addrLine] because they are different getters and a bridge
+     * reply can carry both: CCB's check-in page puts `BDLocation.getStreet()`
+     * into a `street` field next to the formatted `address`, and with this
+     * blank the spoofed reply carried no street at all while the real one did.
+     * The picker fills it from `address_component.street`.
+     */
+    val addrStreet: String = "",
     val addrAdCode: String = "",
     val addrCityCode: String = "",
     /**
@@ -198,6 +227,20 @@ data class SpoofConfig(
      * keeps the request unsigned, exactly as before.
      */
     val mapSkTencent: String = "",
+
+    /**
+     * Places the user has already been: a short history plus whatever they
+     * pinned.
+     *
+     * One array, ordered newest first, with pinning as a flag rather than a
+     * second list — two lists would let the same spot exist in both and disagree
+     * about its address. The cap lives in [recordingAnchor], which is the only
+     * writer.
+     *
+     * Empty is the correct state for every blob written before this existed,
+     * and the home screen falls back to the built-in cities when it is.
+     */
+    val places: List<SavedPlace> = emptyList(),
 ) {
     /** `true` when latitude/longitude are inside WGS-84 bounds. */
     val coordinatesValid: Boolean
@@ -243,14 +286,62 @@ data class SpoofConfig(
             "getCity" -> addrCity
             "getDistrict" -> addrDistrict
             "getTown", "getTownship" -> addrTown
+            "getStreet" -> addrStreet
             "getAdCode", "getAdcode" -> addrAdCode
-            "getCityCode" -> addrCityCode
+            "getCityCode" -> cityCode()
             "getName", "getPoiName" -> addrPlaceName
-            "getAddrStr", "getAddress" -> addrLine
+            "getAddrStr", "getAddress" -> addressLine()
             else -> return null
         }
         return value.takeIf { it.isNotBlank() }
     }
+
+    /**
+     * `true` once reverse geocoding has told us which city the anchor sits in.
+     *
+     * Either half is enough for the same reason [PickedAddress.isResolved] tests
+     * both: a municipality reports a city and leaves the province blank.
+     */
+    val addressKnown: Boolean
+        get() = addrCity.isNotBlank() || addrProvince.isNotBlank()
+
+    /**
+     * The formatted address, assembled from the parts when the picker did not
+     * receive one.
+     *
+     * Tencent's `geo2address` normally returns `result.address` ready to use, but
+     * a reply that carries only `address_component` is a real case (and the
+     * platform `Geocoder` never returns one at all), so a blank [addrLine] does
+     * not mean the address is unknown — it means only the parts are. Joining
+     * them is strictly better than answering nothing: CCB's check-in page reads
+     * `BDLocation.getAddrStr()` for the line under the place name, and it
+     * rendered "地理位置获取失败" for a fix whose province, city and district were
+     * all known but whose line was empty (measured 2026-11-12).
+     *
+     * Address order is province → city → district → street, which is how a
+     * mainland address is written; joining in any other order produces a string
+     * that reads like a mistranslation.
+     */
+    private fun addressLine(): String =
+        addrLine.takeIf { it.isNotBlank() }
+            ?: listOf(addrProvince, addrCity, addrDistrict, addrStreet)
+                .filter { it.isNotBlank() }
+                .joinToString("")
+
+    /**
+     * What `getCityCode()` should answer.
+     *
+     * Rejects a stored value that cannot be one. A city code in this sense is a
+     * short number — CCB's check-in page expects `194` — while the value a
+     * reverse geocoder hands out under the similar name is an *administrative
+     * division* code (nine digits, e.g. `156350200` for 厦门). A configuration
+     * written before the two were separated still carries the latter, and
+     * passing it on is worse than passing nothing: the page looks the value up
+     * in its own table, finds nothing, and reports "地理位置获取失败" while the
+     * reply looks complete. Measured 2026-11-12 on a config written that morning.
+     */
+    private fun cityCode(): String =
+        addrCityCode.takeIf { it.length in 1..4 && it.all(Char::isDigit) } ?: DEFAULT_CITY_CODE
 
     /** Human-readable one-liner used by the manager UI header. */
     fun summary(): String =

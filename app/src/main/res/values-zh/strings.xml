@@ -5,7 +5,12 @@
 
     <!-- 模块 / 服务状态 -->
     <string name="status_module_active">模块已激活</string>
+    <!-- 「已就绪」而不是「未激活」的另一种说法：模块连上了、开关关着，是正常的空闲状态，不是故障。
+         把两者混成一个布尔，才会让健康的安装被界面指控。 -->
+    <string name="status_module_ready">已就绪</string>
     <string name="status_module_inactive">模块未激活</string>
+    <string name="module_help_title">模块为什么没激活？</string>
+    <string name="module_help_body">FakeLoc 的配置通过 LSPosed 的绑定服务读写。下面三种情况都会让它不生效：\n\n1. LSPosed 里没有启用本模块。\n2. 启用了，但本应用是在那之前打开的 —— 请强行停止本应用，再重新打开。\n3. 目标应用不在作用域内，或者它在 Magisk 的 DenyList 里。DenyList 会阻止任何模块注入该应用，本模块也不例外。\n\n改完作用域后，目标应用必须重新启动 —— 策略变更对已经在跑的进程无效。</string>
     <string name="service_unbound_title">未连接到 LSPosed 服务</string>
     <string name="service_unbound_desc">请在 LSPosed 中启用 FakeLoc，然后强行停止本应用并重新打开。模块与 LSPosed 之间通过绑定服务通信。</string>
 
@@ -13,13 +18,18 @@
     <string name="state_running">虚拟定位中</string>
     <string name="state_stopped">已停止</string>
     <string name="state_running_sub">目标应用将收到下方坐标</string>
+    <string name="state_ready_sub">已就绪 · 点下方按钮开始</string>
     <string name="state_stopped_sub">当前未改写任何定位</string>
+    <!-- 开关可以是开也可以是关。没有绑定服务时两种状态都不生效，而旧界面在这种情形下
+         仍然写着「目标应用将收到下方坐标」。 -->
+    <string name="state_unbound_sub">未连接到 LSPosed，开启后也不会生效</string>
 
     <!-- 坐标 -->
     <string name="label_latitude">纬度</string>
     <string name="label_longitude">经度</string>
     <string name="action_use_real_gps">使用真实定位</string>
-    <string name="action_paste">粘贴解析</string>
+    <!-- 「粘贴坐标」而不是「粘贴解析」：后者没说清能粘什么，而这正是用户犹豫的地方。 -->
+    <string name="action_paste">粘贴坐标</string>
     <string name="action_save">保存</string>
     <string name="action_reset">重置</string>
     <string name="hint_coord_example">39.908700</string>
@@ -29,6 +39,10 @@
     <string name="toast_location_denied">定位权限被拒绝</string>
     <string name="toast_location_failed">暂时拿不到定位，建议到空旷处重试</string>
     <string name="toast_invalid_coords">纬度需在 −90…90，经度需在 −180…180</string>
+    <!-- 编辑框自己的状态行。「已保存」是静息态：框里显示的就是生效值 —— 旧界面从没确认过这件事。 -->
+    <string name="coord_pending">未保存</string>
+    <string name="coord_saved">已保存</string>
+    <string name="coord_invalid_short">超出范围</string>
 
     <!-- 地图选点 -->
     <string name="section_map">地图选点</string>
@@ -53,8 +67,16 @@
     <string name="cd_settings">设置</string>
     <string name="toast_map_picked">已从地图选定位置</string>
 
-    <!-- 预设 -->
-    <string name="section_presets">常用坐标</string>
+    <!-- 常用位置：最近 / 收藏 / 城市。每次改锚点都会自动记录，收藏由星标决定。 -->
+    <string name="section_presets">常用位置</string>
+    <string name="places_recent">最近</string>
+    <string name="places_pinned">收藏</string>
+    <string name="places_cities">城市</string>
+    <string name="places_recent_empty">还没有记录 —— 每次改完位置都会自动记在这里。</string>
+    <string name="places_pinned_empty">还没有收藏 —— 在「最近」里点星标就能固定一个。</string>
+    <string name="places_pin">收藏</string>
+    <string name="places_unpin">取消收藏</string>
+    <string name="toast_place_applied">已切换到保存的位置</string>
     <string name="preset_beijing">北京</string>
     <string name="preset_shanghai">上海</string>
     <string name="preset_guangzhou">广州</string>
@@ -67,8 +89,12 @@
     <!-- 目标应用：生效范围已固定，此卡片只做说明 -->
     <string name="section_targets">生效范围</string>
     <string name="targets_fixed_title">LSPosed 作用域内全部应用</string>
-    <string name="targets_fixed_desc">固定生效，无需也无法设置。凡是在 LSPosed 里给本模块勾选的应用，一律改写定位 —— 名单只在 LSPosed 中管理。</string>
+    <string name="targets_fixed_desc">名单只在 LSPosed 中管理，本应用无法也不应再筛一遍。</string>
     <string name="action_done">完成</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_edit">修改</string>
+    <string name="action_got_it">知道了</string>
+    <string name="action_learn_more">了解详情</string>
 
     <!-- 高级参数 -->
     <string name="section_advanced">信号微调</string>
@@ -82,6 +108,12 @@
     <string name="adv_drift_desc">在锚点附近随机游走，让轨迹看起来像真人。</string>
     <string name="adv_drift_radius">漂移半径</string>
     <string name="adv_drift_speed">漂移速度</string>
+    <!-- 每个数值开关关掉后的后果各不相同，所以各写一句：
+         精度与速度是「不回这个值」，海拔是「回真实地形」，漂移是「坐标变成死点」。 -->
+    <string name="off_accuracy">已关闭：不下发精度，SDK 会回答它自己算出的那个值。</string>
+    <string name="off_altitude">已关闭：不下发海拔，SDK 会回答所在位置的真实地形高度。</string>
+    <string name="off_speed">已关闭：不下发速度，SDK 会按两次定位之间的位移自行估算。</string>
+    <string name="off_drift">已关闭：坐标是一个死点，轨迹上完全看不到移动 —— 对常走动的账号反而更可疑。</string>
     <string name="adv_anti_mock">隐藏模拟痕迹</string>
     <string name="adv_anti_mock_desc">抹掉 isFromMockProvider / isMock、mock_location 设置项与 AppOps 检查，让检测方看不到任何异常。</string>
     <string name="adv_strict_sources">锁定定位源</string>
@@ -90,7 +122,32 @@
     <string name="adv_map_sdk_desc">直接钩住高德 / 百度 / 腾讯三家的定位 SDK，包括 App 自己单独加载的实例。定位结果不走系统、只从地图 SDK 读的 App 需要这一项。</string>
     <string name="adv_sync_address">同步伪造地址</string>
     <string name="adv_sync_address_desc">把地图 SDK 的省 / 市 / 区 / 地址接口改成锚点对应的值（由「地图选点」逆地理得到）。显示定位 SDK 城市名的 App 依赖它 —— 地址保持真实或留空时，它们会一直显示你的真实城市。若某个 App 因此出问题就关掉。</string>
-    <string name="addr_unresolved">城市未解析 · 打开「地图选点」保存一次即可</string>
+    <!-- 地址没解析出来时那一行的三种说法，对应三件不同的事：
+         正在查、查不到（点一下重试）、压根没配 Key（重试也没用）。 -->
+    <string name="addr_resolving">正在解析地址…</string>
+    <string name="addr_retry">地址未解析 · 点此重试</string>
+    <string name="addr_no_key">地址未解析 · 设置里填入腾讯 Key 后自动补全</string>
+
+    <!-- 场景预设：精度 / 速度 / 漂移是一组互相牵制的数，凑得不自洽本身就是指纹。 -->
+    <string name="section_scene">场景预设</string>
+    <string name="scene_walking">步行</string>
+    <string name="scene_driving">驾车</string>
+    <string name="scene_indoor">室内静止</string>
+    <string name="scene_custom">当前是自定义组合，不对应任何场景预设</string>
+    <string name="scene_altitude_note">海拔不随场景改变：合理取值取决于所选城市的地形，写死在预设里到哪都不对。</string>
+
+    <!-- 数值与反检测分成两张卡：一组决定假位置长什么样，一组决定检测方能看见什么。 -->
+    <string name="section_shape">精确参数</string>
+    <string name="section_guards">反检测</string>
+    <string name="guards_desc">下面四项默认开启 —— 它们才是「不被识破」的部分。关掉任何一项都属于排障手段，不是常规设置。</string>
+    <string name="guard_off_anti_mock">已关闭：isFromMockProvider / isMock 会如实返回 true，做过基础检测的 App 一眼就能看出这是注入的定位。</string>
+    <string name="guard_off_strict_sources">已关闭：App 可以重新用 WiFi 扫描与基站算出真实位置，于是出现「先跳到假位置、几秒后又跳回真实位置」。</string>
+    <string name="guard_off_map_sdk">已关闭：只有系统定位被改写。从高德 / 百度 / 腾讯 SDK 自己读位置的 App 仍拿到真实坐标，而本页显示的还是假坐标。</string>
+    <string name="guard_off_sync_address">已关闭：省 / 市 / 区与地址恢复成真实值 —— 地图已经在假位置，顶部却写着你的真实城市。</string>
+    <string name="guard_confirm_title">关闭「%1$s」？</string>
+    <string name="guard_confirm_map_sdk">之后模块只改写系统定位。凡是从地图 SDK 自己读取位置的 App（银行、打卡、外卖这类嵌了高德 / 百度 / 腾讯定位的应用）会直接拿到你的真实坐标，而首页仍显示假坐标 —— 看起来像模块没生效，其实是完全没生效。</string>
+    <string name="guard_confirm_sync_address">经纬度仍是假的，但省 / 市 / 区与地址恢复成真实值。显示定位 SDK 城市名的 App 会变成「地图在假位置、顶部写真实城市」的半真半假状态 —— 这种错位比全假更容易被看出来。</string>
+    <string name="guard_confirm_off">仍要关闭</string>
 
     <!-- 主操作 -->
     <string name="action_start">启动虚拟定位</string>
@@ -104,33 +161,55 @@
 
     <!-- 地图服务设置 -->
     <string name="settings_title">设置</string>
-    <!-- v1.6.0: 设置页拆成两个页签。底图与 Key 归「地图配置」，信号微调从首页搬过来，
-         页签名直接复用 section_advanced，避免同一句话在两个资源键里各存一份。 -->
+    <!-- 设置页拆成两个页签，且「信号微调」在前：它是常被翻的那一半，
+         地图与 Key 是一次性配置，放在后面。 -->
     <string name="settings_tab_map">地图配置</string>
-    <string name="settings_signal_desc">决定假位置本身长什么样：精度、海拔、速度与轨迹漂移，以及被检测方能看到什么。开关一改就写入配置。</string>
+    <string name="settings_signal_desc">假位置长什么样，本质是一组数：精度、速度、漂移得互相自洽。先选场景，对不上再手调 —— 改动立即写入配置。</string>
     <string name="settings_map_service">地图服务</string>
-    <string name="settings_map_service_desc">选点页用腾讯地图作底图，地址查询走系统 Geocoder。模块本体（伪造定位）不需要任何地图 Key —— 这一页只影响「地图选点」。</string>
+    <string name="settings_map_service_desc">只影响「地图选点」的底图与地址查询，模块本体不需要任何 Key。</string>
+    <!-- 原来直接铺在页面上的四行说明，现在收进「了解详情」。 -->
+    <string name="settings_map_service_detail">选点页用腾讯地图作底图，地址查询走系统 Geocoder。模块本体（伪造定位）不需要任何地图 Key —— 这一页只影响「地图选点」。</string>
     <string name="settings_provider">底图与 Key</string>
-    <string name="settings_provider_desc">本安装包只内置一家底图（腾讯），且不自带任何 Key。请在下方填入你自己的腾讯 Key；申请步骤见下一栏。</string>
-    <string name="settings_provider_ready">已就绪：已填写 Key。</string>
+    <string name="settings_provider_desc">本安装包不自带任何 Key，请填入你自己的腾讯 Key。</string>
+    <string name="settings_provider_ready">已填写 Key，能否使用还没验证 —— 点下方「测试连通性」。</string>
     <string name="settings_provider_missing_key">还没有 Key，选点页会是一片空白。</string>
     <string name="provider_tencent">腾讯</string>
     <string name="settings_key_tencent">腾讯 Key</string>
     <string name="settings_sk_tencent">腾讯签名密钥（SK）</string>
     <string name="settings_sk_tencent_desc">仅当该 Key 开启了「签名校验」时才需要填写：不填的话腾讯会以 status 111 拒绝每一次请求。没开就留空。</string>
-    <string name="settings_key_filled">已填写</string>
-    <string name="settings_key_empty">未填写</string>
+    <!-- 连通性自检。每种拒绝各写一句，因为每种对应的是不同的修法，
+         而选点页只会说「解析不出地址」。 -->
+    <string name="settings_probe_action">测试连通性</string>
+    <string name="settings_probe_running">测试中…</string>
+    <string name="settings_probe_ok">已连通 · 逆地址解析正常。</string>
+    <string name="settings_probe_no_key">还没有填写 Key。</string>
+    <string name="settings_probe_unreachable">没有任何响应 —— 请检查网络后重试。</string>
+    <string name="settings_probe_111">status 111 · 签名校验未通过。请填写下方签名密钥（SK），或去控制台为该 Key 关闭「签名校验」。</string>
+    <string name="settings_probe_112">status 112 · 调用来源未被放行。请清空该 Key 的 IP 白名单，或加入一条匹配的。</string>
+    <string name="settings_probe_113">status 113 · 该接口没有额度。请到控制台「配额管理」里分配 —— 它和「启用产品」是两件不同的事。</string>
+    <string name="settings_probe_199">status 199 · 该 Key 没有启用 WebServiceAPI。请在 Key 的「启用产品」里勾上。</string>
+    <string name="settings_probe_120">status 120 · 该 Key 今日调用量已用完。</string>
+    <string name="settings_probe_190">status 190 · Key 无效。检查一下粘贴时是否多带了字符。</string>
+    <string name="settings_probe_other">status %1$d · 本版本还不认识的返回码，请对照腾讯文档的状态码表。</string>
     <string name="settings_restart_hint">更改 Key 后需要重启本应用才生效：该 SDK 只在启动时读一次 Key。</string>
+    <string name="settings_restart_now">立即重启</string>
     <string name="settings_console_title">控制台会问你要的两个值</string>
-    <string name="settings_console_desc">腾讯位置服务会把 Key 绑定到这个包名与签名上。差一个字符就会被拒，而报错和「Key 填错了」长得一模一样。请直接复制这两个值，不要手抄。</string>
+    <string name="settings_console_desc">Key 绑定到这个包名与签名，差一个字符就会被拒。直接复制，别手抄。</string>
     <string name="settings_package_label">包名</string>
     <string name="settings_sha1_label">签名 SHA-1</string>
     <string name="settings_sha1_unavailable">读取失败</string>
     <string name="settings_copy">复制</string>
     <string name="settings_copied">已复制</string>
-    <string name="settings_howto">如何获取 Key</string>
-    <string name="settings_howto_desc">下面是「%1$s」的申请步骤。这些控制台改版频繁，若菜单找不到，主线永远是：应用管理 → 创建应用 → 填包名与 SHA-1。</string>
+    <string name="settings_howto">如何申请 Key 与额度</string>
+    <string name="settings_howto_desc">「%1$s」要过四道关：Key 本身、SK 签名、接口额度、调用来源。少任何一道，Key 都会「看着有效、实际用不了」。点开逐步看。</string>
     <string name="steps_tencent_title">腾讯位置服务 · lbs.qq.com</string>
-    <string name="steps_tencent_body">1. 登录腾讯位置服务，进入「控制台 → 应用管理 → 我的应用」。\n2. 创建应用，再在其下「添加 Key」。\n3. 勾选要启用的产品：Android SDK，以及 WebService API（逆地理等 HTTP 接口都走 WebService）。\n4. 填 PackageName 与 SHA1。\n5. 把得到的 Key 复制到上面的腾讯一栏。</string>
+    <string name="howto_key_heading">一、拿到 Key</string>
+    <string name="howto_key_body">1. 登录 lbs.qq.com，进入「控制台 → 应用管理 → 我的应用」。\n2. 点「创建应用」——它只是 Key 的容器，名称随意、无审核；再在该应用下点「添加 Key」。\n3. 同一个 Key 里要同时勾两个产品：Android SDK（底图瓦片）与 WebService API（逆地址解析、关键词提示都走它）。这是两套独立授权：只勾 Android SDK 时，底图能画、地址永远解析不出来。\n4. 勾 Android SDK 时必须填包名与 SHA-1：包名填 %1$s，SHA-1 从上方「控制台会问你要的两个值」里直接复制。\n5. 保存后，列表里该 Key 那一行显示的整串字符就是 Key，复制到上方「腾讯地图 Key」。</string>
+    <string name="howto_sk_heading">二、拿 SK（签名密钥）——只有开了签名校验才需要</string>
+    <string name="howto_sk_body">1. 「应用管理 → 我的应用」→ 找到那把 Key → 点「设置」。\n2. 看「签名校验」开关。它是关的 → SK 留空，这一步可以跳过。\n3. 它是开的 → 同一页会显示「签名密钥 / SK」，32 位大小写混合字符，整串复制到上方「腾讯签名密钥（SK）」。\n4. 开了校验却漏填或填错，所有请求一律返回 status 111。这是「Key 明明有效、却一直解析不出地址」最常见的原因。</string>
+    <string name="howto_quota_heading">三、分配接口调用额度（最容易漏的一步）</string>
+    <string name="howto_quota_body">1. 控制台左侧「配额管理」（部分版本叫「配额」）。\n2. 找到「WebService API → 逆地址解析」，点「分配额度」或「修改」，把每日调用量调成大于 0 的值；个人测试 1000 次/日足够。\n3. 额度按接口分别计算：给了「关键词提示 / 地点搜索」不等于「逆地址解析」也有，缺哪个补哪个。\n4. 只启用产品、不分配额度 → 每次请求返回 status 113。这是「Key 有效却一直失败」的第二个原因，也是最难自己想到的一个。\n5. 若返回 112 / 110，是「调用来源」白名单挡住了 IP 或域名：把白名单清空即放行全部（App 请求不带 Referer）。</string>
+    <string name="howto_status_heading">四、状态码对照</string>
+    <string name="howto_status_body">0 —— 成功，逆地址解析正常\n111 —— 签名校验未通过 → 填 SK，或关掉签名校验\n112 / 110 —— 调用来源未放行 → 清空白名单\n113 —— 该接口未分配额度 → 去「配额管理」分配\n199 —— Key 未启用 WebService API → 回第一步勾上\n190 / 120 —— Key 无效 / 当日额度用尽\n\n改完 Key 或 SK，点下方「测试连通性」：它会真打一次请求，并直接告诉你是哪一道没过。</string>
     <string name="settings_privacy_note">Key 只保存在本机模块配置里，且仅由对应平台的 SDK 发往该平台自己的服务器。</string>
 </resources>

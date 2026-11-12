@@ -2,6 +2,7 @@ package io.github.cobylinweiqi.fakeloc.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -107,18 +110,47 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Dot + text chip signalling whether spoofing is live. */
+/**
+ * The three states a pill can report, and they are genuinely three.
+ *
+ * [ACTIVE] and [READY] used to collapse into one `Boolean`, which is how the
+ * home screen ended up claiming "module not active" whenever spoofing was
+ * merely switched off — a sentence that is both alarming and false, since a
+ * connected module with the switch off is exactly the normal idle state.
+ * [WARN] is the one state that needs the user to do something, and it is
+ * deliberately a colour, not just a word: "not connected" is the only pill a
+ * user should ever be pulled towards.
+ */
+enum class PillTone { ACTIVE, READY, WARN }
+
+/**
+ * Dot + text chip signalling module / run state.
+ *
+ * [onClick] adds a trailing info glyph and makes the pill the way into the
+ * explanation dialog. That is the whole reason the pill is allowed to say "not
+ * active" at all: the state is worth naming only if the naming can be followed
+ * by the fix.
+ */
 @Composable
-fun StatusPill(text: String, active: Boolean, modifier: Modifier = Modifier) {
-    val tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    val container = if (active) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant
+fun StatusPill(
+    text: String,
+    tone: PillTone,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
+    val tint = when (tone) {
+        PillTone.ACTIVE -> MaterialTheme.colorScheme.primary
+        PillTone.READY -> MaterialTheme.colorScheme.onSurfaceVariant
+        PillTone.WARN -> MaterialTheme.colorScheme.onErrorContainer
+    }
+    val container = when (tone) {
+        PillTone.ACTIVE -> MaterialTheme.colorScheme.primaryContainer
+        PillTone.READY -> MaterialTheme.colorScheme.surfaceVariant
+        PillTone.WARN -> MaterialTheme.colorScheme.errorContainer
     }
 
     Surface(
-        modifier = modifier,
+        modifier = if (onClick == null) modifier else modifier.clickable(onClick = onClick),
         shape = CircleShape,
         color = container,
     ) {
@@ -138,6 +170,15 @@ fun StatusPill(text: String, active: Boolean, modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.Medium,
                 color = tint,
             )
+            if (onClick != null) {
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Rounded.Info,
+                    contentDescription = null,
+                    tint = tint.copy(alpha = 0.75f),
+                    modifier = Modifier.size(14.dp),
+                )
+            }
         }
     }
 }
@@ -191,6 +232,13 @@ fun ToggleRow(
  * The value is coerced into [range] before being handed to `Slider`: Material3
  * throws if it is out of bounds, and a config written by an older build can
  * easily sit outside a range that has since been narrowed.
+ *
+ * [enabled] exists because the switch above each of these used to *remove* its
+ * slider instead of disabling it. Removing it made a toggle look like a mode
+ * switch (one shape or another) when it is really "this value is not being sent
+ * right now" — and it hid the number, which is the thing the user is deciding
+ * whether to send. A greyed, unpushable slider with the value still legible says
+ * exactly that.
  */
 @Composable
 fun SliderRow(
@@ -202,8 +250,14 @@ fun SliderRow(
     subtitle: String? = null,
     unit: String = "",
     decimals: Int = 1,
+    enabled: Boolean = true,
 ) {
     val safeValue = value.coerceIn(range.start, range.endInclusive)
+    val labelColor = if (enabled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -211,19 +265,24 @@ fun SliderRow(
                 text = title,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = labelColor,
             )
             Text(
                 text = formatValue(safeValue, decimals) + unit,
                 style = MaterialTheme.typography.titleMedium,
                 fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.primary,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.outline
+                },
             )
         }
         Slider(
             value = safeValue,
             onValueChange = onValueChange,
             valueRange = range,
+            enabled = enabled,
             // ~10 stops per unit of range: smooth to drag, coarse enough to land
             // on tidy numbers. Clamped at 0 because Material3 rejects a negative
             // step count and a narrow range would produce one.

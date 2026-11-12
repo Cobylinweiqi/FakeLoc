@@ -21,6 +21,8 @@ data class PickedAddress(
     val city: String = "",
     val district: String = "",
     val town: String = "",
+    /** The street name, e.g. "邓高路" — what `getStreet()` answers. */
+    val street: String = "",
     val adCode: String = "",
     val cityCode: String = "",
     /**
@@ -68,11 +70,48 @@ fun SpoofConfig.withAnchor(
     addrCity = address.city,
     addrDistrict = address.district,
     addrTown = address.town,
+    addrStreet = address.street,
     addrAdCode = address.adCode,
+    // Written straight through, *including* blank: the Tencent path has no
+    // field in this namespace (see `readAddress`), so a blank here is the
+    // correct state and also clears an administrative code that an earlier
+    // build stored under this name.
     addrCityCode = address.cityCode,
     addrPlaceName = address.placeName,
     addrLine = address.line,
 )
+
+/**
+ * Fills in the address of an anchor that already has its coordinates.
+ *
+ * Reverse geocoding answers asynchronously — the SDK posts to Tencent's server
+ * and calls back hundreds of milliseconds later — so the anchor is always
+ * positioned first and described second. This is the "described" half: the
+ * coordinates are re-applied unchanged, and the address that arrived late is
+ * attached to them.
+ *
+ * It also rewrites the stored history entry for this spot, which is the part
+ * that stops the failure from coming back. A place recorded before its address
+ * was known keeps an empty address forever, and re-selecting it from the home
+ * screen calls [withAnchor] with that empty address — silently undoing the
+ * repair. Measured 2026-11-12 on CCB's employee app: the anchor had been set
+ * from the history, the check-in page reported 地理位置获取失败, and the config
+ * showed every address field blank with a perfectly good pair of coordinates
+ * beside them.
+ *
+ * A blank or partial [address] is ignored rather than written: writing
+ * [PickedAddress.NONE] here would blank an address that is already good, and
+ * every caller of this function is a lookup that may legitimately fail.
+ */
+fun SpoofConfig.withResolvedAddress(address: PickedAddress): SpoofConfig {
+    if (!address.isResolved) return this
+    val anchored = withAnchor(latitude, longitude, address)
+    return anchored.copy(
+        places = anchored.places.map {
+            if (it.isSameSpot(latitude, longitude)) it.copy(address = address) else it
+        },
+    )
+}
 
 /**
  * Moves the anchor and **drops** the address that belonged to the old one.
@@ -83,8 +122,10 @@ fun SpoofConfig.withAnchor(
  * in the UI would explain. Dropping it instead makes the address getters pass the
  * SDK's own value through, which is the same state a fresh install is in.
  *
- * Cheap to undo: the picker reverse-geocodes as soon as it opens, so re-aiming
- * through it restores the address without the user having to do anything extra.
+ * Cheap to undo: the manager reverse-geocodes the new anchor as soon as it
+ * settles (see `MainViewModel.scheduleAddress`), so the address comes back on its
+ * own a moment later without the user having to do anything extra. Opening the
+ * picker does the same thing by hand.
  */
 fun SpoofConfig.moveTo(latitude: Double, longitude: Double): SpoofConfig = copy(
     latitude = latitude,
@@ -94,6 +135,7 @@ fun SpoofConfig.moveTo(latitude: Double, longitude: Double): SpoofConfig = copy(
     addrCity = "",
     addrDistrict = "",
     addrTown = "",
+    addrStreet = "",
     addrAdCode = "",
     addrCityCode = "",
     addrPlaceName = "",

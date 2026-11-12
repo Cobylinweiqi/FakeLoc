@@ -86,14 +86,55 @@ internal object MapSdkHooks {
     private const val TAG = "MapSdk"
 
     /**
-     * One entry per class loader the channels were armed in.
+     * One entry per class loader each channel was actually armed in.
+     *
+     * Per channel rather than one set for all three, because "armed" is a fact
+     * about a single SDK: an app that only ships Baidu must not have its Baidu
+     * work remembered as "this loader is done" and thereby block an Amap arm
+     * later, and a channel that resolved nothing must stay retryable. A single
+     * set filled on *entry* rather than on success — the arrangement until now —
+     * made the first attempt, the one that runs before a hardened app has
+     * decrypted its dex, permanently record the loader as armed while nothing
+     * was installed at all.
      *
      * Weak keys on purpose: a `DexClassLoader` the app builds for one screen is
      * garbage once that screen is gone, and holding it strongly would pin the
      * whole loader — its dex, its `Class` objects — for the process's lifetime.
      */
-    private val installed: MutableSet<ClassLoader> =
+    private val amapArmed: MutableSet<ClassLoader> = newLoaderSet()
+    private val baiduArmed: MutableSet<ClassLoader> = newLoaderSet()
+    private val tencentArmed: MutableSet<ClassLoader> = newLoaderSet()
+
+    private fun newLoaderSet(): MutableSet<ClassLoader> =
         Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap<ClassLoader, Boolean>()))
+
+    /**
+     * Loaders already told that a given SDK is not reachable from them.
+     *
+     * Without this the miss would be logged on every retry, and the retries are
+     * deliberately frequent during the first minute of the process. The message
+     * itself is the one that was missing when a hardened app was investigated:
+     * "channel armed" was simply absent, and nothing said whether the SDK was
+     * unreachable or the channels were blocked by a setting.
+     */
+    private val missReported: MutableMap<ClassLoader, MutableSet<String>> =
+        Collections.synchronizedMap(WeakHashMap<ClassLoader, MutableSet<String>>())
+
+    /**
+     * Answers `false` and explains the miss once per loader and SDK.
+     *
+     * Written as an expression so the class lookups above can read
+     * `?: return reportMissing(...)` — the channel's installer then has exactly
+     * one exit that is easy to audit.
+     */
+    private fun reportMissing(loader: ClassLoader, sdk: String, detail: String): Boolean {
+        val seen = synchronized(missReported) { missReported.getOrPut(loader) { HashSet() } }
+        val first = synchronized(seen) { seen.add(sdk) }
+        if (first) {
+            HookKit.info(TAG, "$sdk SDK not reachable from ${loader.javaClass.name} yet ($detail) — will retry")
+        }
+        return false
+    }
 
     /** Concrete `TencentLocation` implementations already hooked, one pass each. */
     private val tencentPayloads: MutableSet<Class<*>> =
@@ -213,19 +254,49 @@ internal object MapSdkHooks {
     /**
      * Arms every channel whose SDK is reachable from [classLoader].
      *
-     * Called twice in practice: once for the app's own loader at
-     * `onPackageReady`, and again from [DynamicLoaderHooks] if the SDK turns out
-     * to live in a loader of its own. The [installed] guard means the second call
-     * is a no-op unless it carries a genuinely different loader.
+     * Called repeatedly, on purpose: once for the app's own loader at
+     * `onPackageReady`, again from [DynamicLoaderHooks] whenever a map class
+     * loads through a loader we have not seen, and again from [LateArmHooks]
+     * after the app finished creating and on a few timers after that. Each call
+     * is cheap — three set lookups per channel already armed — because the only
+     * work worth repeating is the lookup for a channel that has not resolved
+     * yet.
+     *
+     * @return how many channels this call actually armed. Zero is the normal
+     *   answer for an app that uses no map SDK at all, and also the answer for
+     *   a hardened app whose dex is still encrypted; [LateArmHooks] exists to
+     *   make the second case recover instead of staying silent.
      */
-    fun install(classLoader: ClassLoader) {
-        if (!installed.add(classLoader)) return
-        runCatching { installAmap(classLoader) }
-            .onFailure { HookKit.error(TAG, "AMap channel failed", it) }
-        runCatching { installBaidu(classLoader) }
-            .onFailure { HookKit.error(TAG, "Baidu channel failed", it) }
-        runCatching { installTencent(classLoader) }
-            .onFailure { HookKit.error(TAG, "Tencent channel failed", it) }
+    fun install(classLoader: ClassLoader): Int {
+        var armed = 0
+        if (!amapArmed.contains(classLoader)) {
+            val ok = runCatching { installAmap(classLoader) }
+                .onFailure { HookKit.error(TAG, "AMap channel failed", it) }
+                .getOrDefault(false)
+            if (ok) {
+                amapArmed.add(classLoader)
+                armed++
+            }
+        }
+        if (!baiduArmed.contains(classLoader)) {
+            val ok = runCatching { installBaidu(classLoader) }
+                .onFailure { HookKit.error(TAG, "Baidu channel failed", it) }
+                .getOrDefault(false)
+            if (ok) {
+                baiduArmed.add(classLoader)
+                armed++
+            }
+        }
+        if (!tencentArmed.contains(classLoader)) {
+            val ok = runCatching { installTencent(classLoader) }
+                .onFailure { HookKit.error(TAG, "Tencent channel failed", it) }
+                .getOrDefault(false)
+            if (ok) {
+                tencentArmed.add(classLoader)
+                armed++
+            }
+        }
+        return armed
     }
 
     // ==================================================================== Amap
@@ -282,10 +353,13 @@ internal object MapSdkHooks {
         "getLocationDetail",
     )
 
-    private fun installAmap(loader: ClassLoader) {
-        val locationClass = HookKit.findClass(loader, AMAP_LOCATION) ?: return
-        val listenerClass = HookKit.findClass(loader, AMAP_LISTENER) ?: return
-        val clientClass = HookKit.findClass(loader, AMAP_CLIENT) ?: return
+    private fun installAmap(loader: ClassLoader): Boolean {
+        val locationClass = HookKit.findClass(loader, AMAP_LOCATION)
+            ?: return reportMissing(loader, "amap", "$AMAP_LOCATION not found")
+        val listenerClass = HookKit.findClass(loader, AMAP_LISTENER)
+            ?: return reportMissing(loader, "amap", "$AMAP_LISTENER not found")
+        val clientClass = HookKit.findClass(loader, AMAP_CLIENT)
+            ?: return reportMissing(loader, "amap", "$AMAP_CLIENT not found")
 
         var reads = 0
         for (name in AMAP_READS) {
@@ -316,6 +390,7 @@ internal object MapSdkHooks {
         if (reads > 0 || opened > 0) {
             HookKit.info(TAG, "AMap channel armed ($reads read path(s), $opened listener entry point(s))")
         }
+        return reads > 0 || opened > 0
     }
 
     /**
@@ -400,8 +475,33 @@ internal object MapSdkHooks {
     /** `BDLocation.TypeGpsLocation` — a valid, high-quality fix. */
     private const val BD_TYPE_GPS = 61
 
-    /** Baidu's own datum tag for BD-09, which is what its SDK reports. */
-    private const val BD_COORD_TYPE = "bd09ll"
+    /**
+     * `BDLocation.TypeNetWorkLocation` — the type Baidu returns for an
+     * indoor/server-assisted fix, which is what a spoofed position has to look
+     * like when the app is not assumed to be under open sky.
+     *
+     * Used only to *rescue* a callback that arrived as a failure: the SDK's own
+     * result may be `167` (the server could not locate) or `505` (request
+     * refused), and an app that branches on `getLocType()` will call that a
+     * failure no matter how good the coordinates under it are.
+     */
+    private const val BD_TYPE_NETWORK = 161
+
+    /**
+     * Datum tag written into `BDLocation`.
+     *
+     * `gcj02`, not `bd09ll`, and that is a measurement rather than a
+     * preference: CCB's employee app asks Baidu for `gcj02`
+     * (`LocationClientOption.setCoorType("gcj02")`), and its check-in WebView
+     * receives `coordType:"gcj02"` with GCJ-02 numbers in the real-position
+     * case. Answering `bd09ll` makes the page convert a coordinate that is not
+     * BD-09, which moves the point by the BD-09/GCJ-02 offset (~500 m) before
+     * the distance check runs.
+     *
+     * The datum tag and the numbers under it always move together — see
+     * [BaiduWriter.apply], which converts the anchor to the same datum.
+     */
+    private const val BD_COORD_TYPE = "gcj02"
 
     /**
      * Satellite count on a synthetic fix.
@@ -437,16 +537,19 @@ internal object MapSdkHooks {
         "getAdCode",
     )
 
-    private fun installBaidu(loader: ClassLoader) {
-        val locationClass = HookKit.findClass(loader, BAIDU_LOCATION) ?: return
-        val listenerClass = HookKit.findClass(loader, BAIDU_LISTENER) ?: return
+    private fun installBaidu(loader: ClassLoader): Boolean {
+        val locationClass = HookKit.findClass(loader, BAIDU_LOCATION)
+            ?: return reportMissing(loader, "baidu", "$BAIDU_LOCATION not found")
+        val listenerClass = HookKit.findClass(loader, BAIDU_LISTENER)
+            ?: return reportMissing(loader, "baidu", "$BAIDU_LISTENER not found")
         // `LocationClient.registerLocationListener` has two overloads — one for
         // the interface, one for `BDAbstractLocationListener`, the abstract base
         // most apps actually extend. Matching only the interface would silently
         // skip every registration made through the other one, which is the
         // majority of them.
         val abstractListener = HookKit.findClass(loader, BAIDU_ABSTRACT_LISTENER)
-        val clientClass = HookKit.findClass(loader, BAIDU_CLIENT) ?: return
+        val clientClass = HookKit.findClass(loader, BAIDU_CLIENT)
+            ?: return reportMissing(loader, "baidu", "$BAIDU_CLIENT not found")
         val writer = BaiduWriter(locationClass)
 
         fun isListener(value: Any?): Boolean = value != null &&
@@ -462,6 +565,31 @@ internal object MapSdkHooks {
         }
 
         installAddressReads(locationClass, "baidu", BAIDU_ADDRESS)
+
+        // `getLocType` is deliberately absent from [BaiduWriter.readerNames]:
+        // those hooks write coordinates, this one must not. But it has to be
+        // hooked *somewhere*, because almost every app branches on the type
+        // before it reads a single number:
+        //
+        //     if (loc.getLocType() != 161) { showFailure(); return; }
+        //
+        // On that path the rescue in [BaiduWriter.apply] never runs — the app
+        // never asks for a coordinate, so `apply` is never triggered, and the
+        // callback's original 167 / 505 reaches the branch untouched. That is a
+        // screen that says "位置获取失败" while the object underneath carries
+        // perfectly good spoofed coordinates. Answering the getter closes it.
+        HookKit.hookAll(locationClass, "getLocType", TAG) { chain ->
+            val reported = chain.proceed()
+            if (HookState.mapSdkEngaged() && reported is Int && !succeeded(reported)) {
+                Diag.event(
+                    "locType:$reported",
+                    "BDLocation.getLocType() reported $reported — answered $BD_TYPE_NETWORK so the app does not branch on a failed type",
+                )
+                BD_TYPE_NETWORK
+            } else {
+                reported
+            }
+        }
 
         var opened = 0
         for (entry in BAIDU_ENTRIES) {
@@ -481,7 +609,19 @@ internal object MapSdkHooks {
         if (reads > 0 || opened > 0) {
             HookKit.info(TAG, "Baidu channel armed ($reads read path(s), $opened listener entry point(s))")
         }
+        return reads > 0 || opened > 0
     }
+
+    /**
+     * Baidu's success codes: 61–66 are the various GPS/offline results, 68 and
+     * 161 the network ones. 67 (offline lookup failed), 162 (no permission),
+     * 167 (server could not locate) and the 5xx family are failures.
+     *
+     * A `null` type counts as a failure: the payload then cannot prove it is a
+     * fix, and answering with a good one costs nothing.
+     */
+    private fun succeeded(type: Int?): Boolean =
+        type != null && (type in 61..66 || type == 68 || type == BD_TYPE_NETWORK)
 
     /**
      * `BDLocation` shares nothing with `android.location.Location`, so there is
@@ -498,6 +638,17 @@ internal object MapSdkHooks {
         private val speed = HookKit.findMethod(locationClass, "setSpeed", java.lang.Float.TYPE)
         private val radius = HookKit.findMethod(locationClass, "setRadius", java.lang.Float.TYPE)
         private val locType = HookKit.findMethod(locationClass, "setLocType", java.lang.Integer.TYPE)
+
+        /**
+         * Reads back what the SDK decided before [apply] touches the object.
+         *
+         * Without it there is no way to tell a working callback from a failed
+         * one: a failed fix carries perfectly good coordinates *fields*, it is
+         * `locType` alone that says "this is not a position". The push path
+         * never needs it (it builds the object itself); the callback path does,
+         * on every delivery.
+         */
+        private val locTypeGetter = HookKit.findMethod(locationClass, "getLocType")
         private val coorType = HookKit.findMethod(locationClass, "setCoorType", String::class.java)
         private val satellites = HookKit.findMethod(locationClass, "setSatelliteNumber", java.lang.Integer.TYPE)
         private val time = HookKit.findMethod(locationClass, "setTime", String::class.java)
@@ -524,10 +675,20 @@ internal object MapSdkHooks {
          *   satellite count behind it); overwriting that with a canned
          *   "GPS, 12 satellites" on every read would replace real provenance with
          *   a fixed story, which is both unnecessary and a tell.
+         *
+         *   What the SDK produced is *not* always a fix, though. Once the module
+         *   has cut `getAllCellInfo` / `getScanResults` — which it does for every
+         *   app in scope, see `SourceLockHooks` — Baidu has no radio input left to
+         *   locate with, so its own callback arrives as `167` (server could not
+         *   locate) or `505` (request refused). Those callbacks still carry the
+         *   coordinates we put there, but an app that branches on `getLocType()`
+         *   reads the type, not the numbers, and reports "location failed". So a
+         *   failed type is raised to [BD_TYPE_NETWORK]: the payload now *is* a
+         *   synthetic fix, and its type should say so.
          */
         fun apply(target: Any, synthesised: Boolean = false) {
             val cfg = HookState.config()
-            val (lat, lng) = HookState.positionIn(Datum.BD09)
+            val (lat, lng) = HookState.positionIn(Datum.GCJ02)
 
             call(latitude, target, lat)
             call(longitude, target, lng)
@@ -540,8 +701,18 @@ internal object MapSdkHooks {
                 call(locType, target, BD_TYPE_GPS)
                 call(satellites, target, BD_SATELLITES)
                 call(time, target, SimpleDateFormat(BD_TIME_PATTERN, Locale.US).format(Date()))
+            } else if (!succeeded(locTypeOf(target))) {
+                call(locType, target, BD_TYPE_NETWORK)
+                call(time, target, SimpleDateFormat(BD_TIME_PATTERN, Locale.US).format(Date()))
             }
         }
+
+        /**
+         * The type the SDK reported, or `null` when the getter could not be
+         * resolved on this build. Read *before* [apply] rewrites it.
+         */
+        fun locTypeOf(target: Any): Int? =
+            runCatching { locTypeGetter?.invoke(target) as? Int }.getOrNull()
 
         private fun call(method: Method?, receiver: Any, value: Any) {
             if (method == null) return
@@ -557,7 +728,14 @@ internal object MapSdkHooks {
     ) {
         val hooked = HookKit.hookAll(listener.javaClass, "onReceiveLocation", TAG) { chain ->
             val payload = chain.args.getOrNull(0)
-            if (HookState.mapSdkEngaged() && payload != null) writer.apply(payload)
+            if (HookState.mapSdkEngaged() && payload != null) {
+                // Read before the rewrite: afterwards the type is always ours, and
+                // "the SDK said 167" is the one fact that explains a screen
+                // insisting it could not get a position.
+                val reported = writer.locTypeOf(payload)
+                writer.apply(payload)
+                recordCallback(listener, reported)
+            }
             chain.proceed()
         }
         if (hooked == 0) return
@@ -570,6 +748,104 @@ internal object MapSdkHooks {
 
         SdkDispatch.register(listener, BaiduPusher(listener, locationClass, factory, writer))
         Diag.event("baidu", "Baidu listener captured (onReceiveLocation x$hooked) — feeding the SDK's own callback")
+        probe(listener)
+    }
+
+    /**
+     * One breadcrumb per distinct `locType`, plus one for the listener class.
+     *
+     * Deduplicated by value rather than suppressed entirely, because the
+     * interesting case is precisely a *change*: a 161 arriving normally and a 167
+     * arriving after the radio inputs were cut are different diagnoses, and a
+     * once-per-process line would show whichever came first. The class name says
+     * which wrapper in the app is listening — the SDK's own `BDAbstractLocation-
+     * Listener` subclasses all look alike from the outside, but the app's are
+     * named after its own package, and that is what identifies the call path.
+     */
+    private fun recordCallback(listener: Any, reported: Int?) {
+        val type = reported?.toString() ?: "unreadable"
+        Diag.event(
+            "baidu-cb:$type",
+            "Baidu callback from ${listener.javaClass.name} arrived as locType=$type — answered with a fix on the anchor",
+        )
+    }
+
+    /**
+     * Number of catalogue entries left for [probe] before it stops hooking.
+     *
+     * A hard cap on purpose: this runs inside someone else's process, and a class
+     * with a hundred methods would otherwise get a hundred extra interceptions
+     * installed for a diagnostic that has already said everything it can.
+     */
+    private const val PROBE_LIMIT = 40
+
+    /**
+     * Namespaces that belong to a map SDK rather than to the app.
+     *
+     * A listener under one of these *is* the SDK, and the SDK's own behaviour is
+     * already documented by the channel logs; probing it would only add noise.
+     * Anything else is the app's own wrapper — the layer that decides what the
+     * user finally sees.
+     */
+    private val SDK_NAMESPACES = arrayOf("com.baidu.", "com.amap.", "com.tencent.")
+
+    /**
+     * Dumps what an app-side listener class does with the fix it is given.
+     *
+     * The map SDKs are only half the story: an app that wraps one tends to keep
+     * its own class between the SDK and the screen, and that class — not the SDK —
+     * is what decides "did we get a position, or do we show 地理位置获取失败".
+     * When the SDK reports a good fix (`locType=61`), every field we answer is
+     * filled in, and the screen still says failure, the decision is in there.
+     *
+     * Rather than guess at a name, this lists the class's methods once and hooks
+     * each of them to record what it returned. That is cheap (one hook per method,
+     * one log line per method, no per-call allocation beyond the guard) and it
+     * answers the only question that matters: which method produced the answer the
+     * screen rejected, and what was in it.
+     *
+     * Only classes under the app's own web bridge are probed; nothing generic
+     * (`toString`, `equals`) is reachable anyway — `declaredMethods` is the class's
+     * own, not `Object`'s.
+     */
+    private fun probe(listener: Any) {
+        val clazz = listener.javaClass
+        if (SDK_NAMESPACES.any { clazz.name.startsWith(it) }) return
+        if (!HookKit.firstTime("probe:${clazz.name}")) return
+
+        val names = clazz.declaredMethods
+            .filter { !it.isSynthetic && it.name != "onReceiveLocation" }
+            .map { it.name }
+            .distinct()
+            .take(PROBE_LIMIT)
+        Diag.event("probe-methods:${clazz.name}", "probe ${clazz.name} methods=$names")
+
+        // A listener that is also the app's location command is the only place
+        // the reply the page reads can be rewritten, and this is the one route
+        // to that class that does not depend on `ClassLoader.loadClass`
+        // catching it. Which of the methods builds the reply is not knowable
+        // from here, so every one of them is offered to the repair and its
+        // guard decides.
+        val answersLocation = WebBridgeHooks.isLocationCommand(clazz)
+        for (name in names) {
+            HookKit.hookAll(clazz, name, TAG) { chain ->
+                val result = chain.proceed()
+                val repaired = if (answersLocation) WebBridgeHooks.repairReply(result) else null
+                Diag.event(
+                    "probe-call:${clazz.name}#$name",
+                    "${clazz.simpleName}#$name returned ${describe(result)}",
+                )
+                repaired ?: result
+            }
+        }
+    }
+
+    /** Keeps a probed return value to one log line; objects report their type only. */
+    private fun describe(value: Any?): String = when {
+        value == null -> "null"
+        value is String -> if (value.length > 400) value.take(400) + "…" else value
+        value is CharSequence -> value.toString().take(400)
+        else -> value.javaClass.name
     }
 
     /**
@@ -743,15 +1019,29 @@ internal object MapSdkHooks {
     private val tencentListeners: MutableSet<Class<*>> =
         Collections.synchronizedSet(HashSet<Class<*>>())
 
-    private fun installTencent(loader: ClassLoader) {
+    private fun installTencent(loader: ClassLoader): Boolean {
+        var armed = 0
         for (flavor in TENCENT_FLAVORS) {
-            runCatching { installTencentFlavor(loader, flavor) }
+            val ok = runCatching { installTencentFlavor(loader, flavor) }
                 .onFailure { HookKit.error(TAG, "${flavor.label} channel failed", it) }
+                .getOrDefault(false)
+            if (ok) armed++
         }
+        if (armed == 0) {
+            // One line for the vendor, not one per package: the flavours are
+            // alternative packagings of the same engine, so "both missing" is a
+            // single fact, and two warnings would read as two SDKs to look for.
+            return reportMissing(
+                loader,
+                "tencent",
+                "no known package resolved (${TENCENT_FLAVORS.joinToString { it.label }})",
+            )
+        }
+        return true
     }
 
-    private fun installTencentFlavor(loader: ClassLoader, flavor: TencentFlavor) {
-        val managerClass = HookKit.findClass(loader, flavor.manager) ?: return
+    private fun installTencentFlavor(loader: ClassLoader, flavor: TencentFlavor): Boolean {
+        val managerClass = HookKit.findClass(loader, flavor.manager) ?: return false
 
         // Diagnostic only. The listener is recognised by its *shape* below, not by
         // this type: the `sapp` build repackages it exactly like the manager, and a
@@ -811,6 +1101,7 @@ internal object MapSdkHooks {
         if (opened > 0) {
             HookKit.info(TAG, "${flavor.label} channel armed ($opened entry point(s))")
         }
+        return opened > 0
     }
 
     /**
