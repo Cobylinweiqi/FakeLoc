@@ -59,9 +59,9 @@ android {
         // (tools/icon-master-pixel.png); make-icons.py re-derives both layers
         // from it, re-measured against the new composition.
         //
-        // versionCode 27 continues past 1.16.0's 26.
-        versionCode = 27
-        versionName = "1.17.0"
+        // versionCode 28 continues past 1.17.0's 27.
+        versionCode = 28
+        versionName = "1.17.1"
 
         ndk {
             // **arm64-v8a only.** The bundled engine publishes both ARM variants,
@@ -77,6 +77,14 @@ android {
             // holding — it is the only line that has to change.
             abiFilters += listOf("arm64-v8a")
         }
+
+        // The Tencent SDK ships its strings in ~80 locales; each locale's 85
+        // entries land in resources.arsc (499 KB before this line, measured
+        // 2026-11-12) even though the app itself only defines en and zh. Keep
+        // en, generic zh (our own values-zh) and zh-rCN (so the SDK resolves
+        // its strings directly on a mainland-Chinese device instead of falling
+        // back); everything else is stripped from the resource table only.
+        resourceConfigurations += listOf("en", "zh", "zh-rCN")
     }
 
     // Release signing material lives outside the repository, read from

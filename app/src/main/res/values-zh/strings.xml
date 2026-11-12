@@ -119,9 +119,9 @@
     <string name="adv_strict_sources">锁定定位源</string>
     <string name="adv_strict_sources_desc">拦截 WiFi 扫描、基站信息与原始 GNSS（NMEA、测量值）。切断这些输入后，App 无法自行算出真实位置，也就不会几分钟后又跳回去。</string>
     <string name="adv_map_sdk">接管地图 SDK</string>
-    <string name="adv_map_sdk_desc">直接钩住高德 / 百度 / 腾讯三家的定位 SDK，包括 App 自己单独加载的实例。定位结果不走系统、只从地图 SDK 读的 App 需要这一项。</string>
+    <string name="adv_map_sdk_desc">直接钩住腾讯定位 SDK（含 App 自己单独加载的实例）。定位结果不走系统、只从地图 SDK 读的 App 需要这一项。</string>
     <string name="adv_sync_address">同步伪造地址</string>
-    <string name="adv_sync_address_desc">把地图 SDK 的省 / 市 / 区 / 地址接口改成锚点对应的值（由「地图选点」逆地理得到）。显示定位 SDK 城市名的 App 依赖它 —— 地址保持真实或留空时，它们会一直显示你的真实城市。若某个 App 因此出问题就关掉。</string>
+    <string name="adv_sync_address_desc">把地图 SDK 的省 / 市 / 区 / 地址接口改成锚点的值（由「地图选点」逆地理得到）。显示定位 SDK 城市名的 App 依赖它 —— 地址留空或真实时，顶部会一直是你的真实城市。若某个 App 因此出问题就关掉。</string>
     <!-- 地址没解析出来时那一行的三种说法，对应三件不同的事：
          正在查、查不到（点一下重试）、压根没配 Key（重试也没用）。 -->
     <string name="addr_resolving">正在解析地址…</string>
@@ -139,14 +139,14 @@
     <!-- 数值与反检测分成两张卡：一组决定假位置长什么样，一组决定检测方能看见什么。 -->
     <string name="section_shape">精确参数</string>
     <string name="section_guards">反检测</string>
-    <string name="guards_desc">下面四项默认开启 —— 它们才是「不被识破」的部分。关掉任何一项都属于排障手段，不是常规设置。</string>
-    <string name="guard_off_anti_mock">已关闭：isFromMockProvider / isMock 会如实返回 true，做过基础检测的 App 一眼就能看出这是注入的定位。</string>
-    <string name="guard_off_strict_sources">已关闭：App 可以重新用 WiFi 扫描与基站算出真实位置，于是出现「先跳到假位置、几秒后又跳回真实位置」。</string>
-    <string name="guard_off_map_sdk">已关闭：只有系统定位被改写。从高德 / 百度 / 腾讯 SDK 自己读位置的 App 仍拿到真实坐标，而本页显示的还是假坐标。</string>
-    <string name="guard_off_sync_address">已关闭：省 / 市 / 区与地址恢复成真实值 —— 地图已经在假位置，顶部却写着你的真实城市。</string>
+    <string name="guards_desc">四项默认开启 —— 它们才是「不被识破」的部分，关掉任何一项都只用于排障。</string>
+    <string name="guard_off_anti_mock">已关闭：isFromMockProvider / isMock 如实返回 true，做过基础检测的 App 一眼识破。</string>
+    <string name="guard_off_strict_sources">已关闭：App 可用 WiFi 扫描与基站重新算出真实位置，出现「先跳假位置、几秒后又跳回去」。</string>
+    <string name="guard_off_map_sdk">已关闭：只有系统定位被改写。从腾讯 SDK 自己读位置的 App 仍拿到真实坐标，而本页显示的还是假坐标。</string>
+    <string name="guard_off_sync_address">已关闭：省 / 市 / 区与地址恢复成真实值 —— 地图已在假位置，顶部却写着你的真实城市。</string>
     <string name="guard_confirm_title">关闭「%1$s」？</string>
-    <string name="guard_confirm_map_sdk">之后模块只改写系统定位。凡是从地图 SDK 自己读取位置的 App（银行、打卡、外卖这类嵌了高德 / 百度 / 腾讯定位的应用）会直接拿到你的真实坐标，而首页仍显示假坐标 —— 看起来像模块没生效，其实是完全没生效。</string>
-    <string name="guard_confirm_sync_address">经纬度仍是假的，但省 / 市 / 区与地址恢复成真实值。显示定位 SDK 城市名的 App 会变成「地图在假位置、顶部写真实城市」的半真半假状态 —— 这种错位比全假更容易被看出来。</string>
+    <string name="guard_confirm_map_sdk">之后模块只改写系统定位。凡是从腾讯 SDK 自己读取位置的 App（银行、打卡、外卖这类）会直接拿到真实坐标，而首页仍显示假坐标 —— 看起来像没生效，其实是完全没生效。</string>
+    <string name="guard_confirm_sync_address">经纬度仍是假的，省 / 市 / 区与地址恢复成真实值 —— 地图在假位置、顶部写真实城市，这种错位比全假更显眼。</string>
     <string name="guard_confirm_off">仍要关闭</string>
 
     <!-- 主操作 -->
@@ -204,12 +204,12 @@
     <string name="settings_howto_desc">「%1$s」要过四道关：Key 本身、SK 签名、接口额度、调用来源。少任何一道，Key 都会「看着有效、实际用不了」。点开逐步看。</string>
     <string name="steps_tencent_title">腾讯位置服务 · lbs.qq.com</string>
     <string name="howto_key_heading">一、拿到 Key</string>
-    <string name="howto_key_body">1. 登录 lbs.qq.com，进入「控制台 → 应用管理 → 我的应用」。\n2. 点「创建应用」——它只是 Key 的容器，名称随意、无审核；再在该应用下点「添加 Key」。\n3. 同一个 Key 里要同时勾两个产品：Android SDK（底图瓦片）与 WebService API（逆地址解析、关键词提示都走它）。这是两套独立授权：只勾 Android SDK 时，底图能画、地址永远解析不出来。\n4. 勾 Android SDK 时必须填包名与 SHA-1：包名填 %1$s，SHA-1 从上方「控制台会问你要的两个值」里直接复制。\n5. 保存后，列表里该 Key 那一行显示的整串字符就是 Key，复制到上方「腾讯地图 Key」。</string>
+    <string name="howto_key_body">1. 登录 lbs.qq.com → 控制台 → 应用管理 → 我的应用 → 创建应用（仅是 Key 的容器，名称随意）→ 添加 Key。\n2. 同一把 Key 勾两个产品：Android SDK（底图）与 WebService API（逆地址解析、关键词提示）。两套独立授权，只勾前者会底图能画、地址解析不出。\n3. 勾 Android SDK 要填包名与 SHA-1：包名 %1$s，SHA-1 从上方「控制台会问你要的两个值」复制。\n4. 保存后该 Key 行显示的整串字符就是 Key，复制到上方「腾讯地图 Key」。</string>
     <string name="howto_sk_heading">二、拿 SK（签名密钥）——只有开了签名校验才需要</string>
-    <string name="howto_sk_body">1. 「应用管理 → 我的应用」→ 找到那把 Key → 点「设置」。\n2. 看「签名校验」开关。它是关的 → SK 留空，这一步可以跳过。\n3. 它是开的 → 同一页会显示「签名密钥 / SK」，32 位大小写混合字符，整串复制到上方「腾讯签名密钥（SK）」。\n4. 开了校验却漏填或填错，所有请求一律返回 status 111。这是「Key 明明有效、却一直解析不出地址」最常见的原因。</string>
+    <string name="howto_sk_body">1. 我的应用 → 该 Key → 设置，查看「签名校验」开关。\n2. 关闭 → SK 留空即可；开启 → 同页的「签名密钥 / SK」（32 位）整串复制到上方「腾讯签名密钥（SK）」。\n3. 开了校验而 SK 缺失或填错，所有请求一律 status 111 —— 「Key 有效却解析不出地址」最常见的原因。</string>
     <string name="howto_quota_heading">三、分配接口调用额度（最容易漏的一步）</string>
-    <string name="howto_quota_body">1. 控制台左侧「配额管理」（部分版本叫「配额」）。\n2. 找到「WebService API → 逆地址解析」，点「分配额度」或「修改」，把每日调用量调成大于 0 的值；个人测试 1000 次/日足够。\n3. 额度按接口分别计算：给了「关键词提示 / 地点搜索」不等于「逆地址解析」也有，缺哪个补哪个。\n4. 只启用产品、不分配额度 → 每次请求返回 status 113。这是「Key 有效却一直失败」的第二个原因，也是最难自己想到的一个。\n5. 若返回 112 / 110，是「调用来源」白名单挡住了 IP 或域名：把白名单清空即放行全部（App 请求不带 Referer）。</string>
+    <string name="howto_quota_body">1. 控制台 → 配额管理，找到「WebService API → 逆地址解析」，把每日额度调成大于 0（个人测试 1000 次/日足够）。\n2. 额度按接口单独分配：给了「关键词提示」不代表「逆地址解析」也有，缺哪个补哪个。\n3. 只启用产品不配额度 → status 113；返回 112 / 110 是调用来源白名单拦截，清空白名单即放行（App 请求不带 Referer）。</string>
     <string name="howto_status_heading">四、状态码对照</string>
-    <string name="howto_status_body">0 —— 成功，逆地址解析正常\n111 —— 签名校验未通过 → 填 SK，或关掉签名校验\n112 / 110 —— 调用来源未放行 → 清空白名单\n113 —— 该接口未分配额度 → 去「配额管理」分配\n199 —— Key 未启用 WebService API → 回第一步勾上\n190 / 120 —— Key 无效 / 当日额度用尽\n\n改完 Key 或 SK，点下方「测试连通性」：它会真打一次请求，并直接告诉你是哪一道没过。</string>
+    <string name="howto_status_body">0 —— 成功\n111 —— 签名校验未通过 → 填 SK，或关闭签名校验\n112 / 110 —— 调用来源未放行 → 清空白名单\n113 —— 该接口未分配额度 → 去「配额管理」分配\n199 —— 未启用 WebService API → 回第一步勾上\n190 / 120 —— Key 无效 / 当日额度用尽</string>
     <string name="settings_privacy_note">Key 只保存在本机模块配置里，且仅由对应平台的 SDK 发往该平台自己的服务器。</string>
 </resources>

@@ -1043,8 +1043,13 @@ EXPECTED = {
         # v1.17.0 — manager UI only: the launcher artwork swapped to a pixel-art
         # master (tools/icon-master-pixel.png); both adaptive-icon layers are
         # re-derived by make-icons.py with the composition re-measured.
-        "versionCode = 27": 1,
-        'versionName = "1.17.0"': 1,
+        # v1.17.1 — copy pass: the key-application guide, the README key section
+        # and the anti-detection strings shortened; locales other than en/zh
+        # stripped from resources.arsc (-430 KB of APK).
+        "versionCode = 28": 1,
+        'versionName = "1.17.1"': 1,
+        "versionCode = 27": 0,
+        'versionName = "1.17.0"': 0,
         "versionCode = 26": 0,
         'versionName = "1.16.0"': 0,
         "versionCode = 25": 0,
