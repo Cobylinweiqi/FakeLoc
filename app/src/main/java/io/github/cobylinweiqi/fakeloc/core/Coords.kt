@@ -55,6 +55,34 @@ object Coords {
             Datum.BD09 -> wgs84ToBd09(latitude, longitude)
         }
 
+    /**
+     * The same point expressed in [to], given that it was written in [from].
+     *
+     * This is the generic form every caller outside the hook side should use:
+     * the config's anchor is stored in whichever datum the user selected, and
+     * the picker's basemap speaks GCJ-02, so both directions are needed. Equal
+     * datums short-circuit before touching the maths, which also means an
+     * out-of-China point survives the round trip untouched.
+     */
+    fun convert(
+        latitude: Double,
+        longitude: Double,
+        from: Datum,
+        to: Datum,
+    ): Pair<Double, Double> {
+        if (from == to) return latitude to longitude
+        val (wgsLat, wgsLng) = toWgs84(latitude, longitude, from)
+        return fromWgs84(wgsLat, wgsLng, to)
+    }
+
+    /** [latitude] / [longitude] expressed in [datum] → WGS-84. */
+    fun toWgs84(latitude: Double, longitude: Double, datum: Datum): Pair<Double, Double> =
+        when (datum) {
+            Datum.WGS84 -> latitude to longitude
+            Datum.GCJ02 -> gcj02ToWgs84(latitude, longitude)
+            Datum.BD09 -> bd09ToWgs84(latitude, longitude)
+        }
+
     // ------------------------------------------------------------ public API
 
     /** Baidu BD-09 → WGS-84. The inverse of [wgs84ToBd09]. */
@@ -179,13 +207,31 @@ object Coords {
  * app through `android.location` wants [WGS84], because that is what the platform
  * itself uses.
  */
-enum class Datum {
-    /** What `android.location.Location` carries and what the config stores. */
-    WGS84,
+enum class Datum(val id: String) {
+    /** What `android.location.Location` carries and what GNSS hardware reports. */
+    WGS84("wgs84"),
 
     /** The datum mainland China mandates for public maps; Amap's and Tencent's default. */
-    GCJ02,
+    GCJ02("gcj02"),
 
     /** Baidu's further skew on top of GCJ-02; what its location SDK reports. */
-    BD09,
+    BD09("bd09"),
+    ;
+
+    companion object {
+        /**
+         * What a config with no explicit choice means.
+         *
+         * GCJ-02 rather than WGS-84 on purpose: it is the datum the picker's
+         * basemap draws in and the one every mainland app's map layer assumes,
+         * so a point tapped on the map arrives in the target app exactly where
+         * it was tapped instead of being shifted by the GCJ-02 offset on the
+         * way out. WGS-84 stays available for the apps that genuinely compare
+         * against the platform's own fixes.
+         */
+        val DEFAULT = GCJ02
+
+        /** Unknown or missing ids fall back to [DEFAULT] rather than throwing. */
+        fun from(id: String?): Datum = entries.firstOrNull { it.id == id } ?: DEFAULT
+    }
 }

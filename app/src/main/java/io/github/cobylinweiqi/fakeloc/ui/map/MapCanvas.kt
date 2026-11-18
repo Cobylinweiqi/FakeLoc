@@ -5,6 +5,7 @@ import android.view.View
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import io.github.cobylinweiqi.fakeloc.core.Coords
+import io.github.cobylinweiqi.fakeloc.core.Datum
 import io.github.cobylinweiqi.fakeloc.core.MapProvider
 
 /** Zoom the picker opens at, and returns to when the user taps "recentre". */
@@ -22,12 +23,12 @@ internal const val SEARCH_ZOOM = 17f
  * renderer. Re-adding a platform is an entry here plus a canvas, with no change to
  * the screen below.
  *
- * The canvas takes and returns **WGS-84**, because that is what the config stores
- * and what `android.location` carries. The platform's own datum is applied inside
- * its own canvas and nowhere else: Tencent speaks GCJ-02, and feeding a canvas the
- * wrong datum puts the pin a few hundred metres from where the user aimed, with
- * the map itself looking perfectly healthy while it happens. That is the reason
- * the footer says out loud which datum is on screen.
+ * The canvas takes and returns **the datum the config is stored in** — see
+ * [io.github.cobylinweiqi.fakeloc.core.Datum]. The platform's own datum is
+ * applied inside its own canvas and nowhere else: Tencent speaks GCJ-02, and
+ * feeding a canvas the wrong datum puts the pin a few hundred metres from where
+ * the user aimed, with the map itself looking perfectly healthy while it
+ * happens. That is the reason the footer says out loud which datum is on screen.
  *
  * The camera is driven by value, not by a handle: [targetLatitude] /
  * [targetLongitude] / [targetZoom] say *where* to look and [moveNonce] says
@@ -43,6 +44,7 @@ internal const val SEARCH_ZOOM = 17f
 @Composable
 fun MapCanvas(
     provider: MapProvider,
+    datum: Datum,
     targetLatitude: Double,
     targetLongitude: Double,
     targetZoom: Float,
@@ -54,6 +56,7 @@ fun MapCanvas(
 ) {
     when (provider) {
         MapProvider.TENCENT -> TencentCanvas(
+            datum = datum,
             targetLatitude = targetLatitude,
             targetLongitude = targetLongitude,
             targetZoom = targetZoom,
@@ -120,8 +123,15 @@ internal class MapViewHolder<T> {
 }
 
 /** `WGS-84 → the datum this platform's SDK speaks`. */
-internal fun toGcj02(latitude: Double, longitude: Double): Pair<Double, Double> =
-    Coords.wgs84ToGcj02(latitude, longitude)
+internal fun datumToCanvas(
+    datum: Datum,
+    latitude: Double,
+    longitude: Double,
+): Pair<Double, Double> = Coords.convert(latitude, longitude, datum, Datum.GCJ02)
 
-internal fun gcj02ToWgs84(latitude: Double, longitude: Double): Pair<Double, Double> =
-    Coords.gcj02ToWgs84(latitude, longitude)
+/** `the datum this platform's SDK speaks → the datum the config is stored in`. */
+internal fun canvasToDatum(
+    datum: Datum,
+    latitude: Double,
+    longitude: Double,
+): Pair<Double, Double> = Coords.convert(latitude, longitude, Datum.GCJ02, datum)

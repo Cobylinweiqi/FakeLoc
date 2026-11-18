@@ -35,9 +35,26 @@ data class SpoofConfig(
     /** Master switch. Everything is a no-op while this is false. */
     val playing: Boolean = false,
 
-    /** Anchor point, in decimal degrees. */
+    /** Anchor point, in decimal degrees, in the datum [datumId] names. */
     val latitude: Double = 39.908700,
     val longitude: Double = 116.397500,
+
+    /**
+     * Which coordinate system [latitude] / [longitude] are written in.
+     *
+     * One setting, three systems, because the same spot has three numbers and
+     * only the user knows which one the target app is comparing against. It
+     * applies to the whole coordinate pipeline: what the map picker stores, what
+     * the boxes on the home screen show, what saved places hold, and what every
+     * hook delivers after converting from here.
+     *
+     * Stored as an id rather than an enum ordinal, the same way [mapProviderId]
+     * is, so a blob written by a build that did not know a given system still
+     * decodes. [Datum.DEFAULT] is GCJ-02 — the datum the picker's basemap draws
+     * in, and therefore the one that keeps a tapped point exactly where it was
+     * tapped instead of shifting it on the way to the target app.
+     */
+    val datumId: String = Datum.DEFAULT.id,
 
     val useAccuracy: Boolean = true,
     /** Horizontal accuracy in metres. */
@@ -245,6 +262,35 @@ data class SpoofConfig(
     /** `true` when latitude/longitude are inside WGS-84 bounds. */
     val coordinatesValid: Boolean
         get() = latitude in -90.0..90.0 && longitude in -180.0..180.0
+
+    /** The coordinate system [latitude] / [longitude] are written in. */
+    val datum: Datum
+        get() = Datum.from(datumId)
+
+    /**
+     * Switches to [datum] without moving the spot it describes.
+     *
+     * Changing a *display* of a point must not change *which* point it is, and
+     * here it very easily could: the same numbers read as GCJ-02 and as WGS-84
+     * are ~500 m apart. So the stored pair — and every saved place, which is
+     * written in the same datum — is converted rather than reinterpreted. The
+     * address is left alone because it still describes the same physical place.
+     */
+    fun withDatum(datum: Datum): SpoofConfig {
+        val current = this.datum
+        if (current == datum) return copy(datumId = datum.id)
+        val (lat, lng) = Coords.convert(latitude, longitude, current, datum)
+        return copy(
+            datumId = datum.id,
+            latitude = lat,
+            longitude = lng,
+            places = places.map { place ->
+                val (placeLat, placeLng) =
+                    Coords.convert(place.latitude, place.longitude, current, datum)
+                place.copy(latitude = placeLat, longitude = placeLng)
+            },
+        )
+    }
 
     /**
      * Whether this configuration should rewrite anything at all.

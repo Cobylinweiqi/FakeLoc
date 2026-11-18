@@ -18,6 +18,7 @@ import com.tencent.tencentmap.mapsdk.maps.TencentMap
 import com.tencent.tencentmap.mapsdk.maps.TencentMapOptions
 import com.tencent.tencentmap.mapsdk.maps.model.CameraPosition
 import com.tencent.tencentmap.mapsdk.maps.model.LatLng
+import io.github.cobylinweiqi.fakeloc.core.Datum
 
 /**
  * Tencent's base map.
@@ -44,6 +45,7 @@ import com.tencent.tencentmap.mapsdk.maps.model.LatLng
  */
 @Composable
 internal fun TencentCanvas(
+    datum: Datum,
     targetLatitude: Double,
     targetLongitude: Double,
     targetZoom: Float,
@@ -60,9 +62,14 @@ internal fun TencentCanvas(
         val holder = remember { MapViewHolder<MapView>() }
         val center by rememberUpdatedState(onCenterChanged)
         val fail by rememberUpdatedState(onFailed)
+        // Read through the state holder: the view and its callbacks are built
+        // once per key, while the datum can change under them (from the
+        // settings page). A captured value would keep converting with the
+        // datum that was selected when the map was first drawn.
+        val datumNow by rememberUpdatedState(datum)
 
-        val targetGcj02 = remember(targetLatitude, targetLongitude) {
-            val (lat, lng) = toGcj02(targetLatitude, targetLongitude)
+        val targetGcj02 = remember(datum, targetLatitude, targetLongitude) {
+            val (lat, lng) = datumToCanvas(datum, targetLatitude, targetLongitude)
             LatLng(lat, lng)
         }
 
@@ -104,7 +111,7 @@ internal fun TencentCanvas(
                                     override fun onCameraChange(position: CameraPosition?) {
                                         position?.target?.let { target ->
                                             val (lat, lng) =
-                                                gcj02ToWgs84(target.latitude, target.longitude)
+                                                canvasToDatum(datumNow, target.latitude, target.longitude)
                                             center(lat, lng)
                                         }
                                     }
@@ -112,7 +119,7 @@ internal fun TencentCanvas(
                                     override fun onCameraChangeFinished(position: CameraPosition?) {
                                         position?.target?.let { target ->
                                             val (lat, lng) =
-                                                gcj02ToWgs84(target.latitude, target.longitude)
+                                                canvasToDatum(datumNow, target.latitude, target.longitude)
                                             center(lat, lng)
                                         }
                                     }

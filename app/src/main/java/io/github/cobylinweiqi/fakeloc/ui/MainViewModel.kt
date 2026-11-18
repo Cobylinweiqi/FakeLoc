@@ -12,6 +12,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.cobylinweiqi.fakeloc.App
 import io.github.cobylinweiqi.fakeloc.R
+import io.github.cobylinweiqi.fakeloc.core.Coords
+import io.github.cobylinweiqi.fakeloc.core.Datum
 import io.github.cobylinweiqi.fakeloc.core.Geo
 import io.github.cobylinweiqi.fakeloc.core.MapProvider
 import io.github.cobylinweiqi.fakeloc.core.PickedAddress
@@ -171,6 +173,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun togglePlaying() = update { it.copy(playing = !it.playing) }
 
     /**
+     * Switches the coordinate system the anchor is written in.
+     *
+     * Not routed through [update] on purpose, even though that is the usual
+     * chokepoint. [update] writes a history entry whenever the numbers move, and
+     * switching datums *does* move them — by ~500 m — while the physical spot is
+     * unchanged. Going through it would fill the history with the same place
+     * three times, once per system. The address is likewise left alone, because
+     * it describes the place, not the notation.
+     */
+    fun setDatum(datum: Datum) {
+        val before = _config.value
+        val next = before.withDatum(datum)
+        if (next == before) return
+        _config.value = next
+        viewModelScope.launch(Dispatchers.IO) {
+            if (!store.save(next)) {
+                _messages.tryEmit(R.string.service_unbound_title)
+            }
+        }
+    }
+
+    /**
      * Validates the two text fields and adopts them.
      *
      * Kept separate from [setCoordinates] because this is the explicit "保存"
@@ -285,6 +309,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val secret = current.mapSecretValue(MapProvider.TENCENT)
+        val datum = current.datum
         val latitude = current.latitude
         val longitude = current.longitude
 
@@ -310,6 +335,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 getApplication(),
                 key,
                 secret,
+                datum,
                 latitude,
                 longitude,
             )
@@ -403,7 +429,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (location == null) {
                         _messages.tryEmit(R.string.toast_location_failed)
                     } else {
-                        update { it.moveTo(location.latitude, location.longitude) }
+                        adoptRealFix(location.latitude, location.longitude)
                     }
                 }
             } else {
@@ -413,11 +439,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (last == null) {
                     _messages.tryEmit(R.string.toast_location_failed)
                 } else {
-                    update { it.moveTo(last.latitude, last.longitude) }
+                    adoptRealFix(last.latitude, last.longitude)
                 }
             }
         }.onFailure {
             _messages.tryEmit(R.string.toast_location_failed)
+        }
+    }
+
+    /**
+     * Adopts a *real* fix, which is always WGS-84.
+     *
+     * The one place a coordinate enters the app without going through the
+     * picker, and the one place it therefore has to be converted: everything
+     * else already speaks the selected datum. Without this, "use real GPS" would
+     * drop a WGS-84 pair into a GCJ-02 config and put the anchor ~500 m from
+     * where the phone actually is.
+     */
+    private fun adoptRealFix(latitude: Double, longitude: Double) {
+        update {
+            val (lat, lng) = Coords.convert(latitude, longitude, Datum.WGS84, it.datum)
+            it.moveTo(lat, lng)
         }
     }
 

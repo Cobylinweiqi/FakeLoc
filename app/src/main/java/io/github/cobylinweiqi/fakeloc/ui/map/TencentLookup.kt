@@ -19,6 +19,7 @@ import com.tencent.lbssearch.`object`.param.SuggestionParam
 import com.tencent.lbssearch.`object`.result.Geo2AddressResultObject
 import com.tencent.lbssearch.`object`.result.SuggestionResultObject
 import com.tencent.tencentmap.mapsdk.maps.model.LatLng
+import io.github.cobylinweiqi.fakeloc.core.Datum
 import io.github.cobylinweiqi.fakeloc.core.PickedAddress
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
@@ -147,6 +148,7 @@ internal suspend fun tencentReverseGeocode(
     context: Context,
     apiKey: String?,
     secretKey: String?,
+    datum: Datum,
     latitude: Double,
     longitude: Double,
 ): PickedAddress? {
@@ -154,7 +156,7 @@ internal suspend fun tencentReverseGeocode(
     // its own fallback and only asks whether an address arrived. The settings
     // page's connectivity test is the one place the code is the answer, and it
     // reads it through [tencentProbe] instead.
-    val (address, _) = callGeo2Address(context, apiKey, secretKey, latitude, longitude)
+    val (address, _) = callGeo2Address(context, apiKey, secretKey, datum, latitude, longitude)
     return address
 }
 
@@ -196,7 +198,7 @@ internal suspend fun tencentProbe(
     longitude: Double,
 ): TencentProbe {
     if (apiKey.isNullOrBlank()) return TencentProbe.NoKey
-    val (_, status) = callGeo2Address(context, apiKey, secretKey, latitude, longitude)
+    val (_, status) = callGeo2Address(context, apiKey, secretKey, Datum.WGS84, latitude, longitude)
     return when {
         status == STATUS_OK -> TencentProbe.Ok
         status <= 0 -> TencentProbe.Unreachable
@@ -218,11 +220,12 @@ private suspend fun callGeo2Address(
     context: Context,
     apiKey: String?,
     secretKey: String?,
+    datum: Datum,
     latitude: Double,
     longitude: Double,
 ): Pair<PickedAddress?, Int> = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
     suspendCancellableCoroutine<Pair<PickedAddress?, Int>> { cont ->
-        val (gcjLat, gcjLng) = toGcj02(latitude, longitude)
+        val (gcjLat, gcjLng) = datumToCanvas(datum, latitude, longitude)
         val param = Geo2AddressParam(LatLng(gcjLat, gcjLng))
             // The point handed over is already GCJ-02, so the request must not
             // be told to convert it again.
@@ -298,11 +301,12 @@ internal suspend fun tencentSuggestPlaces(
     apiKey: String?,
     secretKey: String?,
     query: String,
+    datum: Datum,
     nearLatitude: Double,
     nearLongitude: Double,
 ): List<TencentPlaceHit>? = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
     suspendCancellableCoroutine { cont ->
-        val (gcjLat, gcjLng) = toGcj02(nearLatitude, nearLongitude)
+        val (gcjLat, gcjLng) = datumToCanvas(datum, nearLatitude, nearLongitude)
         val param = SuggestionParam(query, REGION_ANY)
             // Nudges ranking towards what is on screen; the endpoint still
             // answers for the whole country.
@@ -328,7 +332,7 @@ internal suspend fun tencentSuggestPlaces(
                             // A row without a coordinate cannot move the camera,
                             // which is the only thing a suggestion is for here.
                             val point = row.latLng ?: return@mapNotNull null
-                            val (lat, lng) = gcj02ToWgs84(point.latitude, point.longitude)
+                            val (lat, lng) = canvasToDatum(datum, point.latitude, point.longitude)
                             TencentPlaceHit(
                                 title = row.title.orEmpty().ifBlank { row.address.orEmpty() },
                                 region = listOfNotNull(row.province, row.city, row.district)

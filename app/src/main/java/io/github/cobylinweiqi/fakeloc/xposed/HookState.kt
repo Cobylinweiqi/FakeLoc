@@ -203,11 +203,15 @@ internal object HookState {
      * Converted on every call rather than cached: drift moves the point between
      * calls, so a cached conversion would pin a drifting track to a fixed
      * offset — the one thing that would give the drift away.
+     *
+     * The starting datum is the one the user selected in the settings page, not
+     * WGS-84 as an assumption: the config stores exactly what the picker handed
+     * it. [Datum.WGS84] therefore costs nothing when that is the selection and
+     * one shift when it is not.
      */
     fun positionIn(datum: Datum): Pair<Double, Double> {
-        if (datum == Datum.WGS84) return position()
         val (lat, lng) = position()
-        return Coords.fromWgs84(lat, lng, datum)
+        return Coords.convert(lat, lng, config().datum, datum)
     }
 
     // ------------------------------------------------------------- location

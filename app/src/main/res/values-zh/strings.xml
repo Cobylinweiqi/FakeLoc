@@ -57,7 +57,7 @@
     <string name="map_use_this">使用此位置</string>
     <string name="map_recenter">回到原点</string>
     <string name="map_center_hint">拖动地图，图钉所指即所选位置</string>
-    <string name="map_datum_note">底图为腾讯地图，使用 GCJ-02；下方坐标已换算为 WGS-84，与上方坐标框一致。</string>
+    <string name="map_datum_note">底图为腾讯地图，使用 GCJ-02；下方坐标使用当前坐标系（%1$s），与上方坐标框一致。</string>
     <string name="map_needs_key_title">未配置%1$s地图 Key</string>
     <string name="map_needs_key_desc">还没有腾讯地图的 Key，无法绘制底图。请在「设置」里填写 —— 设置页同时给出了控制台会索要的包名与 SHA-1。</string>
     <string name="map_open_settings">打开设置</string>
@@ -212,4 +212,12 @@
     <string name="howto_status_heading">四、状态码对照</string>
     <string name="howto_status_body">0 —— 成功\n111 —— 签名校验未通过 → 填 SK，或关闭签名校验\n112 / 110 —— 调用来源未放行 → 清空白名单\n113 —— 该接口未分配额度 → 去「配额管理」分配\n199 —— 未启用 WebService API → 回第一步勾上\n190 / 120 —— Key 无效 / 当日额度用尽</string>
     <string name="settings_privacy_note">Key 只保存在本机模块配置里，且仅由对应平台的 SDK 发往该平台自己的服务器。</string>
+    <string name="section_datum">坐标系</string>
+    <string name="datum_desc">地图选点会按这个坐标系保存，注入给目标应用的数值也同样从这里换算。切换时已经保存的坐标会自动换算，位置不会跑。</string>
+    <string name="datum_gcj02">GCJ-02</string>
+    <string name="datum_wgs84">WGS-84</string>
+    <string name="datum_bd09">BD-09</string>
+    <string name="datum_gcj02_desc">默认。腾讯、高德底图使用的坐标系，绝大多数国内应用也按它解读位置：地图上点哪里，目标应用就落在哪里。</string>
+    <string name="datum_wgs84_desc">GPS 原始坐标。android.location 携带的就是它，Google 地图、各类 GPS 工具与多数海外应用按它比对。</string>
+    <string name="datum_bd09_desc">百度在 GCJ-02 之上再加偏的坐标系，只有百度系 SDK 会输出。被伪造的应用用百度定位时才需要选它。</string>
 </resources>

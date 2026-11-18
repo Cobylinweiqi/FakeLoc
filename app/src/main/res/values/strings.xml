@@ -60,7 +60,7 @@
     <string name="map_use_this">Use this location</string>
     <string name="map_recenter">Recentre</string>
     <string name="map_center_hint">Drag the map — the pin marks the centre</string>
-    <string name="map_datum_note">The base map is Tencent’s and speaks GCJ-02; the value below is converted to WGS-84 so it matches the box above.</string>
+    <string name="map_datum_note">The base map is Tencent’s and speaks GCJ-02; the value below is your selected coordinate system (%1$s).</string>
     <string name="map_needs_key_title">No %1$s map key</string>
     <string name="map_needs_key_desc">Tencent has no key yet, so no base map can be drawn. Add one in Settings — that page also shows the package name and SHA-1 the console will ask you for.</string>
     <string name="map_open_settings">Open Settings</string>
@@ -221,4 +221,12 @@
     <string name="howto_status_heading">4 · What the status codes mean</string>
     <string name="howto_status_body">0 — success\n111 — signature rejected → fill the SK, or turn signing off\n112 / 110 — call source not allowed → clear the allow-list\n113 — this endpoint has no quota → assign it under Quota management\n199 — WebService API not enabled → back to step 1\n190 / 120 — invalid key / daily limit reached</string>
     <string name="settings_privacy_note">Keys stay on this device, in the module’s own preferences, and are sent only to the platform’s own servers by that platform’s SDK.</string>
+    <string name="section_datum">Coordinate system</string>
+    <string name="datum_desc">The picker stores the point in this system, and every hook delivers it converted from here. Switching converts the anchor you already have, so the spoofed spot does not move.</string>
+    <string name="datum_gcj02">GCJ-02</string>
+    <string name="datum_wgs84">WGS-84</string>
+    <string name="datum_bd09">BD-09</string>
+    <string name="datum_gcj02_desc">Default. What Tencent and Amap basemaps draw and what nearly every mainland app expects: tap a point on the map and the target app lands on it.</string>
+    <string name="datum_wgs84_desc">Raw GPS. What android.location carries and what Google Maps, GNSS tools and most apps outside the mainland compare against.</string>
+    <string name="datum_bd09_desc">Baidu’s own skew on top of GCJ-02. Only Baidu’s SDK reports this; use it when that is the app being spoofed.</string>
 </resources>
