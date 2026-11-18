@@ -68,6 +68,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import io.github.cobylinweiqi.fakeloc.R
+import io.github.cobylinweiqi.fakeloc.core.Datum
 import io.github.cobylinweiqi.fakeloc.core.MapProvider
 import io.github.cobylinweiqi.fakeloc.core.SpoofConfig
 import io.github.cobylinweiqi.fakeloc.ui.map.TencentProbe
@@ -125,6 +126,7 @@ import kotlin.system.exitProcess
 fun SettingsScreen(
     config: SpoofConfig,
     onUpdate: ((SpoofConfig) -> SpoofConfig) -> Unit,
+    onDatum: (Datum) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -203,7 +205,10 @@ fun SettingsScreen(
                     PrivacyNote()
                 }
 
-                SettingsTab.SIGNAL -> SignalTuningCard(config = config, onUpdate = onUpdate)
+                SettingsTab.SIGNAL -> {
+                    DatumCard(config = config, onDatum = onDatum)
+                    SignalTuningCard(config = config, onUpdate = onUpdate)
+                }
             }
             Spacer(Modifier.height(28.dp))
         }
@@ -831,6 +836,64 @@ private fun SceneCard(
 
         Spacer(Modifier.height(10.dp))
         Body(stringResource(R.string.scene_altitude_note))
+    }
+}
+
+// ------------------------------------------------------------ the datum
+
+/**
+ * Which of the three coordinate systems the whole app speaks.
+ *
+ * One chip row rather than a dropdown: three options fit, and the current one
+ * has to be legible at a glance — a wrong datum is not an error message, it is a
+ * pin that sits a few hundred metres off on someone else's map.
+ *
+ * Switching is handled by [MainViewModel.setDatum], which converts the stored
+ * anchor and every saved place instead of reinterpreting them, so the spoofed
+ * spot does not move when the notation changes. The line under the chips says
+ * what the selection is actually for, because "GCJ-02" alone tells nobody which
+ * one to pick.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DatumCard(
+    config: SpoofConfig,
+    onDatum: (Datum) -> Unit,
+) {
+    val current = config.datum
+
+    FakeLocCard {
+        SectionLabel(stringResource(R.string.section_datum))
+        Spacer(Modifier.height(8.dp))
+        Body(stringResource(R.string.datum_desc))
+        Spacer(Modifier.height(12.dp))
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            // GCJ-02 first: it is the default, and the row should read in the
+            // order a user is likely to want them.
+            listOf(Datum.GCJ02, Datum.WGS84, Datum.BD09).forEach { datum ->
+                FilterChip(
+                    selected = datum == current,
+                    onClick = { onDatum(datum) },
+                    label = { Text(stringResource(datumLabel(datum))) },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = stringResource(datumDescription(current)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

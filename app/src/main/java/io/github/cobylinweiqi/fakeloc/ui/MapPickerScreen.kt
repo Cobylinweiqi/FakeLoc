@@ -57,6 +57,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.cobylinweiqi.fakeloc.R
+import io.github.cobylinweiqi.fakeloc.core.Coords
+import io.github.cobylinweiqi.fakeloc.core.Datum
 import io.github.cobylinweiqi.fakeloc.core.Geo
 import io.github.cobylinweiqi.fakeloc.core.MapProvider
 import io.github.cobylinweiqi.fakeloc.core.PickedAddress
@@ -81,13 +83,13 @@ private const val MIN_QUERY_LENGTH = 2
 /**
  * Pick a spot on a real map.
  *
- * **The whole screen works in WGS-84**, which is what
- * [io.github.cobylinweiqi.fakeloc.core.SpoofConfig] stores and what `android.location` carries.
- * The platform's own datum is confined to its canvas — Tencent speaks GCJ-02 —
- * so there is exactly one conversion point per direction instead of one per
- * provider. Feeding a canvas the wrong datum puts the pin a few hundred metres
- * from where the user aimed while the map itself looks perfectly healthy, which
- * is why the footer says out loud which datum is being displayed.
+ * **The whole screen works in the datum the config is stored in**, which is
+ * whatever the user selected in the settings page — GCJ-02 by default, WGS-84 or
+ * BD-09 on request. The platform's own datum is confined to its canvas — Tencent
+ * speaks GCJ-02 — so there is exactly one conversion point per direction instead
+ * of one per provider. Feeding a canvas the wrong datum puts the pin a few
+ * hundred metres from where the user aimed while the map itself looks perfectly
+ * healthy, which is why the footer says out loud which datum is being displayed.
  *
  * Two ways to aim, both live at once — drag the map so the pinned reticle lands
  * on the target, or search and let the camera fly there. The address under the
@@ -115,6 +117,9 @@ fun MapPickerScreen(
     val context = LocalContext.current
 
     val provider = config.mapProvider
+
+    /** The datum the whole screen — and the config — works in. */
+    val datum = config.datum
     val mapKey = config.mapKeyFor(provider)
     // Raw, blank included: an empty secret is a meaningful instruction to
     // Tencent's SDK ("this key does not sign"), not something to filter out.
@@ -147,8 +152,8 @@ fun MapPickerScreen(
 
     // ------------------------------------------------------------- the state
 
-    // The centre, WGS-84. Starts at the stored anchor; the canvas reports back
-    // after the opening camera move, so this is never stale for long.
+    // The centre, in the config's datum. Starts at the stored anchor; the canvas
+    // reports back after the opening camera move, so this is never stale for long.
     val center = remember { mutableStateOf(initialLatitude to initialLongitude) }
 
     // Where the camera should be. Separate from `center` because aiming at a
@@ -200,7 +205,7 @@ fun MapPickerScreen(
     // `adminArea` / `locality` / `subLocality`, which is all the hook side ever
     // reads them for — it answers the target SDK's `getCity()` / `getProvince()`
     // getters and looks the name up in the app's own table.
-    val centerWgs = center.value
+    val centerPoint = center.value
 
     // Read through `rememberUpdatedState` so that a key pasted while this screen
     // is open reaches the next lookup — the effect below is keyed on the centre
@@ -212,8 +217,8 @@ fun MapPickerScreen(
     // be open when it changes.
     val lookupSecret by rememberUpdatedState(mapSecret)
 
-    LaunchedEffect(centerWgs) {
-        val (centerLat, centerLng) = centerWgs
+    LaunchedEffect(centerPoint) {
+        val (centerLat, centerLng) = centerPoint
         resolving.value = true
         // Cleared before the lookup, not after: a confirm pressed during the
         // debounce must store *nothing* rather than the previous centre's
@@ -228,11 +233,15 @@ fun MapPickerScreen(
         // have a working geocoder of its own; the platform path is tried
         // whenever it produced nothing at all, including the case where it
         // answered but had no administrative name to give.
-        val viaSdk = tencentReverseGeocode(context, lookupKey, lookupSecret, centerLat, centerLng)
+        val viaSdk = tencentReverseGeocode(context, lookupKey, lookupSecret, datum, centerLat, centerLng)
         val picked = if (viaSdk != null && viaSdk.isResolved) {
             viaSdk
         } else {
-            platformReverseGeocode(context, centerLat, centerLng)
+            // The platform geocoder is the one path that still speaks WGS-84:
+            // it asks the ROM's own backend, which knows nothing about the
+            // datum the user selected.
+            val (wgsLat, wgsLng) = Coords.toWgs84(centerLat, centerLng, datum)
+            platformReverseGeocode(context, wgsLat, wgsLng)
         }
 
         if (picked.isResolved) {
@@ -264,8 +273,9 @@ fun MapPickerScreen(
             lookupKey,
             lookupSecret,
             keyword,
-            centerWgs.first,
-            centerWgs.second,
+            datum,
+            centerPoint.first,
+            centerPoint.second,
         )
         val found = viaSdk?.map { hit ->
             PlaceHit(
@@ -300,6 +310,7 @@ fun MapPickerScreen(
             if (drawable) {
                 MapCanvas(
                     provider = provider,
+                    datum = datum,
                     targetLatitude = targetLatitude,
                     targetLongitude = targetLongitude,
                     targetZoom = targetZoom,
@@ -343,14 +354,15 @@ fun MapPickerScreen(
         }
 
         PickerFooter(
-            latitude = centerWgs.first,
-            longitude = centerWgs.second,
+            latitude = centerPoint.first,
+            longitude = centerPoint.second,
+            datum = datum,
             address = address.value,
             resolving = resolving.value,
             failed = lookupFailed.value,
             enabled = configured,
             onRecentre = { aimAt(initialLatitude, initialLongitude, PICKER_ZOOM) },
-            onConfirm = { onPicked(centerWgs.first, centerWgs.second, resolved.value) },
+            onConfirm = { onPicked(centerPoint.first, centerPoint.second, resolved.value) },
         )
     }
 }
@@ -848,6 +860,7 @@ private fun MapFailedPanel(
 private fun PickerFooter(
     latitude: Double,
     longitude: Double,
+    datum: Datum,
     address: String?,
     resolving: Boolean,
     failed: Boolean,
@@ -899,8 +912,9 @@ private fun PickerFooter(
 
             Spacer(Modifier.height(6.dp))
 
-            // WGS-84: the value that is actually stored and injected, matching
-            // the home screen's coordinate box digit for digit.
+            // The selected datum: the value that is actually stored and
+            // injected, matching the home screen's coordinate box digit for
+            // digit.
             Text(
                 text = "${Geo.format(latitude)}, ${Geo.format(longitude)}",
                 style = MaterialTheme.typography.titleMedium,
@@ -916,7 +930,10 @@ private fun PickerFooter(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = stringResource(R.string.map_datum_note),
+                text = stringResource(
+                    R.string.map_datum_note,
+                    stringResource(datumLabel(datum)),
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),

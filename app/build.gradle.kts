@@ -60,8 +60,11 @@ android {
         // from it, re-measured against the new composition.
         //
         // versionCode 28 continues past 1.17.0's 27.
-        versionCode = 28
-        versionName = "1.17.1"
+        //
+        // 30 is 1.17.3 — the build that lets the user pick the coordinate
+        // system (1.17.2 was a local smoke-test build and never shipped).
+        versionCode = 30
+        versionName = "1.17.3"
 
         ndk {
             // **arm64-v8a only.** The bundled engine publishes both ARM variants,

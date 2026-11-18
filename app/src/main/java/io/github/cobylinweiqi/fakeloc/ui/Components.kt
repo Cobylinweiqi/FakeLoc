@@ -36,6 +36,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.cobylinweiqi.fakeloc.R
+import io.github.cobylinweiqi.fakeloc.core.Datum
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -321,4 +323,18 @@ fun RowDivider(modifier: Modifier = Modifier) {
             .height(1.dp)
             .background(MaterialTheme.colorScheme.outlineVariant),
     )
+}
+
+/** Short name of a coordinate system, for chips and the picker's footer. */
+internal fun datumLabel(datum: Datum): Int = when (datum) {
+    Datum.GCJ02 -> R.string.datum_gcj02
+    Datum.WGS84 -> R.string.datum_wgs84
+    Datum.BD09 -> R.string.datum_bd09
+}
+
+/** One line on what a coordinate system is used for and what it costs. */
+internal fun datumDescription(datum: Datum): Int = when (datum) {
+    Datum.GCJ02 -> R.string.datum_gcj02_desc
+    Datum.WGS84 -> R.string.datum_wgs84_desc
+    Datum.BD09 -> R.string.datum_bd09_desc
 }

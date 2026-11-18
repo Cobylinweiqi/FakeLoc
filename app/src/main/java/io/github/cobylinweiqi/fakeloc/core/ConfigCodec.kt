@@ -20,6 +20,13 @@ object ConfigCodec {
     private const val K_PLAYING = "playing"
     private const val K_LAT = "lat"
     private const val K_LNG = "lng"
+    // Added with [SpoofConfig.datumId]. A blob from an earlier build has no such
+    // key, and those blobs hold **WGS-84** numbers — every picker conversion
+    // before this field existed wrote WGS-84. Decoding them as the new default
+    // (GCJ-02) would reinterpret the anchor and move it ~500 m, so a missing key
+    // means WGS-84 here, while a *fresh* install still starts at GCJ-02 through
+    // [SpoofConfig]'s own default.
+    private const val K_DATUM = "datum"
     private const val K_USE_ACCURACY = "use_accuracy"
     private const val K_ACCURACY = "accuracy"
     private const val K_USE_ALTITUDE = "use_altitude"
@@ -79,6 +86,7 @@ object ConfigCodec {
         put(K_PLAYING, config.playing)
         put(K_LAT, config.latitude)
         put(K_LNG, config.longitude)
+        put(K_DATUM, config.datumId)
         put(K_USE_ACCURACY, config.useAccuracy)
         put(K_ACCURACY, config.accuracy.toDouble())
         put(K_USE_ALTITUDE, config.useAltitude)
@@ -132,6 +140,7 @@ object ConfigCodec {
             playing = json.optBoolean(K_PLAYING, defaults.playing),
             latitude = json.optDouble(K_LAT, defaults.latitude).takeIf { it.isFinite() } ?: defaults.latitude,
             longitude = json.optDouble(K_LNG, defaults.longitude).takeIf { it.isFinite() } ?: defaults.longitude,
+            datumId = legacyDatum(json),
             useAccuracy = json.optBoolean(K_USE_ACCURACY, defaults.useAccuracy),
             accuracy = json.optDouble(K_ACCURACY, defaults.accuracy.toDouble()).toFloat().coerceAtLeast(0f),
             useAltitude = json.optBoolean(K_USE_ALTITUDE, defaults.useAltitude),
@@ -234,6 +243,19 @@ object ConfigCodec {
         }
         return places
     }
+
+    /**
+     * Which coordinate system a blob's coordinates are written in.
+     *
+     * A blob with no `datum` key predates the setting and therefore holds WGS-84
+     * numbers; reading those as the new default would move every existing anchor
+     * ~500 m. A blob that does carry the key is trusted, with an unknown id
+     * falling back to [Datum.DEFAULT] rather than throwing — the same rule
+     * [MapProvider] uses for its own stored id.
+     */
+    private fun legacyDatum(json: JSONObject): String =
+        if (json.has(K_DATUM)) Datum.from(decodeText(json, K_DATUM, "")).id
+        else Datum.WGS84.id
 
     /**
      * Reads one free-text field.

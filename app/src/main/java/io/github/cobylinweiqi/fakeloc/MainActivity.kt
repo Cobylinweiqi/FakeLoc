@@ -127,6 +127,7 @@ private fun FakeLocApp(viewModel: MainViewModel = viewModel()) {
                 Screen.SETTINGS -> SettingsScreen(
                     config = config,
                     onUpdate = viewModel::update,
+                    onDatum = viewModel::setDatum,
                     onBack = { screenName = Screen.HOME.name },
                 )
 

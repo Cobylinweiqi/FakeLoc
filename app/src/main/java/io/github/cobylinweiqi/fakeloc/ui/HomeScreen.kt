@@ -558,7 +558,14 @@ private fun CoordinateEditorCard(
         parsable
 
     FakeLocCard {
-        SectionLabel(stringResource(R.string.label_latitude) + " / " + stringResource(R.string.label_longitude))
+        // The datum is part of the label on purpose: the same building has three
+        // sets of numbers and the box above is the one being edited, so which
+        // system it is written in has to be legible without opening settings.
+        SectionLabel(
+            stringResource(R.string.label_latitude) + " / " +
+                stringResource(R.string.label_longitude) + " · " +
+                stringResource(datumLabel(config.datum)),
+        )
 
         Spacer(Modifier.height(10.dp))
 
