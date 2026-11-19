@@ -840,6 +840,35 @@ EXPECTED = {
         # Two call sites on purpose: the getter path (what the app reads) and the
         # callback path (what the app is handed). Both have to carry the type fix.
         "writer.apply(payload)": 2,
+        # 2026-11-19: a delivered payload's *verdict*, not only its coordinate.
+        # 领道者 branches on AMapLocation.getErrorCode() before it reads a single
+        # number, so when Amap's own engine failed (strictSources cuts WiFi/cell,
+        # errorCode 13) the app showed 定位失败 and never saw the fake coordinate.
+        # The four getters answer success on payloads the app has received and
+        # only on those — the SDK reads the same getters on its own working
+        # copies while deciding what to do next.
+        "private object DeliveredPayloads {": 1,
+        "private val refs: MutableList<WeakReference<Any>> =": 1,
+        "private fun installAmapErrorReads(locationClass: Class<*>) {": 1,
+        "installAmapErrorReads(locationClass)": 1,
+        'HookKit.hookAll(locationClass, "getErrorCode", TAG)': 1,
+        'HookKit.hookAll(locationClass, "getErrorInfo", TAG)': 1,
+        # getLocationDetail is also on AMAP_ADDRESS, so this getter carries both
+        # the address diagnostic and the error-state answer; both hooks proceed
+        # first, which is what keeps the diagnostic alive whatever the order.
+        'HookKit.hookAll(locationClass, "getLocationDetail", TAG)': 1,
+        'HookKit.hookAll(locationClass, "getLocationType", TAG)': 1,
+        # One per getter: the gate must pass on the SDK's own objects.
+        "!DeliveredPayloads.contains(chain.thisObject)": 4,
+        # Marked at the listener boundary and nowhere else.
+        "DeliveredPayloads.mark(it)": 1,
+        "AMap error state answered as success ($hooked getter(s))": 1,
+        # Tencent carries the verdict *beside* the payload, as the callback's
+        # second argument, so this channel rewrites the arguments instead.
+        "val rewritten = args.toTypedArray()": 1,
+        "rewritten[1] = 0": 1,
+        'if (rewritten.size > 2) rewritten[2] = ""': 1,
+        "chain.proceed(rewritten)": 1,
     },
     # v1.10.0 (加固包补丁) — the second attempt at arming the SDK channels. Its whole reason
     # to exist is the *timing*, so what is pinned is the framework hook that runs
