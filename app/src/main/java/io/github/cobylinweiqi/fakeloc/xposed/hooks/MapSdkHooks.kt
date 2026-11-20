@@ -7,6 +7,7 @@ import io.github.cobylinweiqi.fakeloc.xposed.Diag
 import io.github.cobylinweiqi.fakeloc.xposed.HookKit
 import io.github.cobylinweiqi.fakeloc.xposed.HookState
 import io.github.cobylinweiqi.fakeloc.xposed.SdkDispatch
+import java.lang.ref.WeakReference
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -66,6 +67,18 @@ import java.util.concurrent.atomic.AtomicBoolean
  * so a virtual call through the `Location` reference reaches those overrides and
  * lands in the right fields. `getAccuracy` is the one that delegates to
  * `super`, which is why it is on the list as well rather than assumed to follow.
+ *
+ * ## The verdict travels with the payload
+ *
+ * A payload is not just a coordinate: it also says whether the fix *succeeded*,
+ * and an app is free to check that first and never look at the coordinate. Amap
+ * reports the verdict in `getErrorCode()` and Tencent as the `error` argument
+ * beside the payload; Baidu's `getLocType()` has been rescued since v1.10.0. An
+ * app that checks first and finds a failure never sees the coordinates this
+ * module wrote — a bridge method that branches on the error code and shows its
+ * own "定位失败" is the common shape. Each channel therefore answers the verdict
+ * as a success on payloads it has *delivered* ([DeliveredPayloads]), never on
+ * the SDK's own working copies.
  *
  * ## Datum
  *
@@ -142,6 +155,66 @@ internal object MapSdkHooks {
 
     /** Address fields whose first read has already been reported, `sdk.name` keys. */
     private val addressSeen: MutableSet<String> = Collections.synchronizedSet(HashSet<String>())
+
+    /**
+     * Payloads already handed to the target app, tracked by identity.
+     *
+     * ## Why a marker is needed at all
+     *
+     * A map SDK reports "no fix right now" through *the payload it delivers*, not
+     * through a separate callback. An app that branches on that verdict before
+     * reading the coordinate discards the fake position and shows its own failure
+     * screen even though the object in its hands carries our coordinates —
+     * a target check-in app does exactly that on the Amap channel: with
+     * `strictSources` on, the SDK's network engine gives up before it sends
+     * anything (`#1301` / `#1302`, errorCode 13) and the app shows 定位失败
+     * although the 1 Hz push would have delivered a good fix.
+     *
+     * Correcting the verdict is only safe on the copy the app is *about to read*.
+     * The SDK keeps reading the same getters on its own objects while it decides
+     * what to do next (fall back, cache, retry), and a success answer there would
+     * cut that logic out from under it. Membership here separates "the app's copy"
+     * from "the SDK's working copy", which is why marking happens at the listener
+     * boundary and nowhere else.
+     *
+     * ## Why a list of weak references rather than a `WeakHashMap`
+     *
+     * A payload's coordinates are rewritten on every read (drift moves the point
+     * per call), so a hash built from its fields is not stable for the lifetime of
+     * an entry — the lookup would simply stop finding an object it put in.
+     * Comparing referents with identity has no such dependency, and a cleared
+     * reference is dropped on the next call, so the app still decides when a
+     * payload dies.
+     */
+    private object DeliveredPayloads {
+
+        private val refs: MutableList<WeakReference<Any>> =
+            Collections.synchronizedList(ArrayList<WeakReference<Any>>())
+
+        /** Records [payload] as delivered; repeated marks of one object are a no-op. */
+        fun mark(payload: Any) {
+            if (contains(payload)) return
+            refs.add(WeakReference(payload))
+        }
+
+        /** `true` while [payload] is one handed to the app and still reachable. */
+        fun contains(payload: Any?): Boolean {
+            if (payload == null) return false
+            var found = false
+            synchronized(refs) {
+                val iterator = refs.iterator()
+                while (iterator.hasNext()) {
+                    val value = iterator.next().get()
+                    if (value == null) {
+                        iterator.remove()
+                    } else if (value === payload) {
+                        found = true
+                    }
+                }
+            }
+            return found
+        }
+    }
 
     /**
      * Reports one address field the app just read, and answers it with the
@@ -371,6 +444,7 @@ internal object MapSdkHooks {
         }
 
         installAddressReads(locationClass, "amap", AMAP_ADDRESS)
+        installAmapErrorReads(locationClass)
 
         var opened = 0
         opened += HookKit.hookAll(clientClass, "setLocationListener", TAG) { chain ->
@@ -394,6 +468,95 @@ internal object MapSdkHooks {
     }
 
     /**
+     * Answers the "did this fix succeed" fields on payloads the app has received.
+     *
+     * ## Why rewriting the coordinate is not enough
+     *
+     * A delivered `AMapLocation` carries both the verdict and the position, and
+     * the verdict is read first in the pattern Amap documents — a bridge method
+     * is a literal `if (location.getErrorCode() != 0) showToast("定位失败")`.
+     * When the SDK's engine fails, the coordinate in that object is a placeholder,
+     * so the app was never going to read it anyway: the coordinates this module
+     * writes into the same object were invisible to it.
+     *
+     * Measured on a target app, 2026-11-19, with
+     * `strictSources` on: WiFi and cell information are denied, Amap's network
+     * engine gives up before it sends anything (`#1301` / `#1302`, errorCode 13),
+     * and the app shows 定位失败. The 1 Hz push that does carry a success payload
+     * is registered on `setLocationListener` but first fires a second later, so
+     * the SDK's own failing callback — sub-second — wins the race every time.
+     *
+     * ## Values answered
+     *
+     * The success triple a fresh `AMapLocation` is constructed with: `0`,
+     * `"success"`, `""`. The public setters cannot be used to correct a finalised
+     * object — `setErrorCode` silently ignores the write once a non-zero code is
+     * set — so the getters are the only place this can happen.
+     *
+     * `getErrorInfo` matters as much as the code: on a non-zero code this SDK
+     * appends the error-code URL and the raw detail to the same string, so a
+     * reader that only surfaces "the error info" would still see the failure.
+     * `getLocationType` follows for consistency: the SDK stamps `0` ("no source")
+     * on every result whose error code is non-zero, and with the code now reading
+     * `0` that would be the one field still saying the fix never happened.
+     *
+     * ## Proceed first
+     *
+     * Every one of these getters calls through before deciding. `getLocationDetail`
+     * is also on [AMAP_ADDRESS], so the address diagnostic is installed on the
+     * same method, and libxposed does not define the order between two hooks of
+     * equal priority: answering without proceeding would swallow that breadcrumb
+     * half the time. Proceeding first costs one call on a path the app reads a
+     * handful of times per fix, and keeps the diagnostics intact regardless of
+     * order.
+     *
+     * Gated on [DeliveredPayloads]: the SDK reads these getters on its own objects
+     * while deciding what to do next, and answering success there would break
+     * that control flow inside someone else's process.
+     */
+    private fun installAmapErrorReads(locationClass: Class<*>) {
+        var hooked = 0
+        hooked += HookKit.hookAll(locationClass, "getErrorCode", TAG) { chain ->
+            val original = chain.proceed()
+            if (!HookState.mapSdkEngaged() || !DeliveredPayloads.contains(chain.thisObject)) {
+                return@hookAll original
+            }
+            val code = original as? Int ?: return@hookAll original
+            if (code == 0) return@hookAll original
+            Diag.event(
+                "amap-error:$code",
+                "AMapLocation.getErrorCode() reported $code — answered 0 so the app does not branch on a failed fix",
+            )
+            0
+        }
+        hooked += HookKit.hookAll(locationClass, "getErrorInfo", TAG) { chain ->
+            val original = chain.proceed()
+            if (!HookState.mapSdkEngaged() || !DeliveredPayloads.contains(chain.thisObject)) {
+                return@hookAll original
+            }
+            "success"
+        }
+        hooked += HookKit.hookAll(locationClass, "getLocationDetail", TAG) { chain ->
+            val original = chain.proceed()
+            if (!HookState.mapSdkEngaged() || !DeliveredPayloads.contains(chain.thisObject)) {
+                return@hookAll original
+            }
+            ""
+        }
+        hooked += HookKit.hookAll(locationClass, "getLocationType", TAG) { chain ->
+            val original = chain.proceed()
+            if (!HookState.mapSdkEngaged() || !DeliveredPayloads.contains(chain.thisObject)) {
+                return@hookAll original
+            }
+            val type = original as? Int ?: return@hookAll original
+            if (type == 0) 1 else original
+        }
+        if (hooked > 0) {
+            HookKit.info(TAG, "AMap error state answered as success ($hooked getter(s))")
+        }
+    }
+
+    /**
      * Wires one `AMapLocationListener`: its callback gets rewritten, and the
      * listener is enrolled for the active push.
      */
@@ -401,7 +564,13 @@ internal object MapSdkHooks {
         val hooked = HookKit.hookAll(listener.javaClass, "onLocationChanged", TAG) { chain ->
             if (!HookState.mapSdkEngaged()) return@hookAll chain.proceed()
             for (argument in chain.args) {
-                (argument as? Location)?.let { HookState.applyTo(it, Datum.GCJ02) }
+                (argument as? Location)?.let {
+                    HookState.applyTo(it, Datum.GCJ02)
+                    // The object is now the app's copy — the SDK has already
+                    // finished with it — so the error-state getters may answer a
+                    // success story on it from here on.
+                    DeliveredPayloads.mark(it)
+                }
             }
             chain.proceed()
         }
@@ -1136,8 +1305,29 @@ internal object MapSdkHooks {
             // gating happens per getter read, and a payload that arrived while the
             // module was off must not keep answering with the real fix after it is
             // switched on.
-            armTencentPayload(chain.args.getOrNull(0), flavor)
-            chain.proceed()
+            val payload = chain.args.getOrNull(0)
+            armTencentPayload(payload, flavor)
+            if (!HookState.mapSdkEngaged() || payload == null) return@hookAll chain.proceed()
+
+            // The verdict sits *beside* the payload on this channel — the same
+            // callback carries `(location, error, reason)` — so an app that
+            // branches on `error` before touching the location never sees the
+            // coordinate this channel has already rewritten. Answer the success
+            // pair on that same call, which is what the SDK itself passes for a
+            // good fix. A zero code is left exactly as delivered, and the arity
+            // guard covers a build whose callback takes only the payload.
+            val args = chain.args
+            val code = args.getOrNull(1) as? Int ?: return@hookAll chain.proceed()
+            if (code == 0) return@hookAll chain.proceed()
+
+            Diag.event(
+                "${flavor.label}-error:$code",
+                "${flavor.label} callback reported error $code — answered 0 so the app does not branch on a failed fix",
+            )
+            val rewritten = args.toTypedArray()
+            rewritten[1] = 0
+            if (rewritten.size > 2) rewritten[2] = ""
+            chain.proceed(rewritten)
         }
         if (hooked > 0) {
             Diag.event(
