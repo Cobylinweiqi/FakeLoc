@@ -20,6 +20,7 @@ import com.tencent.lbssearch.`object`.result.Geo2AddressResultObject
 import com.tencent.lbssearch.`object`.result.SuggestionResultObject
 import com.tencent.tencentmap.mapsdk.maps.model.LatLng
 import io.github.cobylinweiqi.fakeloc.core.PickedAddress
+import io.github.cobylinweiqi.fakeloc.mapsdk.MapSdkBootstrap
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
@@ -373,15 +374,25 @@ internal suspend fun tencentSuggestPlaces(
  * the SDK so it can answer with its own complaint ("请申请并填写开发者密钥")
  * rather than failing somewhere less legible, and a blank *secret* is a
  * meaningful instruction — "this key does not sign" — that must survive the trip.
+ *
+ * The consent flag is recorded here as well, not at each caller: the settings
+ * page's connectivity probe constructs a search client without ever drawing a
+ * map, so it never reaches `MapSdkBootstrap.ensure` from the picker. Tencent
+ * refuses such a request locally with status -1 and `请确保隐私政策已取得用户同意`
+ * — nothing goes on the wire, and the probe can only report "no answer". The
+ * same thing happened to the auto address resolver until it gained its own
+ * `ensure` call (2026-11-12); this is the single place that covers both.
  */
-private fun newSearch(context: Context, apiKey: String?, secretKey: String?): TencentSearch =
-    TencentSearch(
+private fun newSearch(context: Context, apiKey: String?, secretKey: String?): TencentSearch {
+    MapSdkBootstrap.ensureConsent()
+    return TencentSearch(
         // Application context: the client keeps whatever it is handed, and an
         // Activity here outlives the screen.
         context.applicationContext ?: context,
         apiKey.orEmpty(),
         secretKey.orEmpty(),
     )
+}
 
 /**
  * Maps the SDK's reply onto [PickedAddress].

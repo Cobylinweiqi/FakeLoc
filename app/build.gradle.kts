@@ -59,9 +59,13 @@ android {
         // (tools/icon-master-pixel.png); make-icons.py re-derives both layers
         // from it, re-measured against the new composition.
         //
-        // versionCode 28 continues past 1.17.0's 27.
-        versionCode = 28
-        versionName = "1.17.1"
+        // versionCode 29 continues past 1.17.1's 28. 1.17.2 is a manager-side
+        // fix: the settings page's connectivity probe now records the Tencent
+        // SDK's privacy consent before building a search client. Without it an
+        // otherwise valid key was refused locally (status -1, nothing on the
+        // wire) and the UI could only report "no answer".
+        versionCode = 29
+        versionName = "1.17.2"
 
         ndk {
             // **arm64-v8a only.** The bundled engine publishes both ARM variants,

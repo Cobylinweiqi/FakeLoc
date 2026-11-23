@@ -580,9 +580,18 @@ EXPECTED = {
         "private suspend fun callGeo2Address(": 1,
         "internal suspend fun tencentProbe(": 1,
         "internal sealed interface TencentProbe": 1,
+        # 2026-11-23: the settings probe builds its search client without ever
+        # opening the picker, so the SDK consent flag has to be recorded at this
+        # single choke point. Without it Tencent refuses locally with status -1
+        # and the UI can only say "no answer" — indistinguishable from no network.
+        "MapSdkBootstrap.ensureConsent()": 1,
     },
     JAVA + "mapsdk/MapSdkBootstrap.kt": {
         "private fun startTencent()": 1,
+        # 2026-11-23: consent is also needed by TencentSearch from the settings
+        # page, which never opens a map. One definition, one setter call — the
+        # picker's ensure() and the lookup's ensureConsent() share this switch.
+        "fun ensureConsent()": 1,
         "TencentMapInitializer.setAgreePrivacy(true)": 1,
         # v1.5.0: the Baidu and Amap branches are gone, and with them the
         # `setApiKey` guard that existed because an empty string is worse than
@@ -1046,8 +1055,14 @@ EXPECTED = {
         # v1.17.1 — copy pass: the key-application guide, the README key section
         # and the anti-detection strings shortened; locales other than en/zh
         # stripped from resources.arsc (-430 KB of APK).
-        "versionCode = 28": 1,
-        'versionName = "1.17.1"': 1,
+        # v1.17.2 — the settings page's connectivity probe records Tencent's
+        # privacy consent before constructing a search client. Cold-starting
+        # straight into settings used to leave the flag unset, so the SDK
+        # refused locally (status -1) and the probe said "no answer".
+        "versionCode = 29": 1,
+        'versionName = "1.17.2"': 1,
+        "versionCode = 28": 0,
+        'versionName = "1.17.1"': 0,
         "versionCode = 27": 0,
         'versionName = "1.17.0"': 0,
         "versionCode = 26": 0,

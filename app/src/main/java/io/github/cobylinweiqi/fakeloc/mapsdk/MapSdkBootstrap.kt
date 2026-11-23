@@ -36,6 +36,16 @@ object MapSdkBootstrap {
     private var startedKey: String? = null
 
     /**
+     * Consent is a separate switch from "the map SDK was started": TencentSearch
+     * consults it too, and the settings page calls that without ever opening a
+     * map. Without it the SDK refuses locally with `请确保隐私政策已取得用户同意`
+     * (status -1, nothing on the wire), which the connectivity probe can only
+     * report as "no answer" (measured 2026-11-23).
+     */
+    @Volatile
+    private var consentRecorded = false
+
+    /**
      * Starts [config]'s provider if it is not already running, and reports what
      * the picker should do next.
      *
@@ -108,7 +118,21 @@ object MapSdkBootstrap {
      * tiles until consent is recorded, and the map stays blank.
      */
     private fun startTencent() {
+        ensureConsent()
+    }
+
+    /**
+     * Records the privacy consent every Tencent network call needs, including
+     * the ones that never draw a map. Idempotent: 5.9.0 exposes no getter and no
+     * un-set, and repeating the call is harmless but needless.
+     *
+     * Kept here rather than at each call site so a future caller of
+     * `TencentSearch` cannot silently repeat the settings page's failure.
+     */
+    fun ensureConsent() {
+        if (consentRecorded) return
         TencentMapInitializer.setAgreePrivacy(true)
+        consentRecorded = true
     }
 
     /** What the picker should tell the user, if anything. */
