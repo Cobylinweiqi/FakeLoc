@@ -1,7 +1,5 @@
 package io.github.cobylinweiqi.fakeloc.xposed.hooks
 
-import android.os.Handler
-import android.os.Looper
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import io.github.cobylinweiqi.fakeloc.core.Datum
@@ -120,9 +118,6 @@ internal object WebBridgeHooks {
     @Volatile
     private var repairs = 0
 
-    /** Delay before `WebView` may be touched: its initialiser needs the app. */
-    private const val DEVTOOLS_DELAY_MS = 400L
-
     /** Traced calls already reported. */
     @Volatile
     private var callsLogged = 0
@@ -131,38 +126,9 @@ internal object WebBridgeHooks {
     private var jsLogged = 0
 
     fun install() {
-        exposeDevtools()
         watchCommandClasses()
         watchJavascript()
         watchGeolocationPrompt()
-    }
-
-    /**
-     * Lets `chrome://inspect` — or plain CDP over adb — attach to this app's
-     * WebViews.
-     *
-     * Needed because the half that decides is JavaScript: the bridge glue that
-     * turns a native reply into the object a page's `success` handler receives
-     * is injected at runtime, so neither the APK nor the cache holds it. With a
-     * debugger attached the page's own state can be read directly — which
-     * beats inferring it from log lines, as the check-in page proved: its
-     * "位置获取失败" text turned out to be a `||` fallback for a missing
-     * *place name*, not a failed fix.
-     *
-     * Delayed rather than called inline: `WebView`'s static initialiser reaches
-     * for the app's WebView package, which is not resolvable at process fork.
-     * The flag only has to be set before the first `WebView` is constructed,
-     * and that happens long after this fires.
-     */
-    private fun exposeDevtools() {
-        runCatching {
-            Handler(Looper.getMainLooper()).postDelayed({
-                runCatching {
-                    WebView.setWebContentsDebuggingEnabled(true)
-                    HookKit.info(TAG, "WebView debugging on — forward a port to webview_devtools_remote_<pid>")
-                }
-            }, DEVTOOLS_DELAY_MS)
-        }
     }
 
     /**
